@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}{{ depot.name }} Dashboard - TN Bus Lost & Found{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    
+    <!-- Depot Header -->
+    <div class="card-glass rounded-2xl p-6 opacity-0 animate-fade-in">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-tn-slate to-gray-700 flex items-center justify-center shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">{{ depot.name }}</h1>
+                    <p class="text-gray-500 mono text-sm">{{ depot_phone }} • {{ depot.stop }}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                    {{ found_reports | length }} Found Report(s)
+                </span>
+                <a href="{{ url_for('depot_logout') }}" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium transition-colors">
+                    Logout
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-8">
+        
+        <!-- Upload Found Item Form -->
+        <div class="card-glass rounded-2xl shadow-xl overflow-hidden opacity-0 animate-fade-in animate-delay-1">
+            <div class="bg-gradient-to-r from-emerald-600 to-teal-600 p-5">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-white">Report Found Item</h2>
+                        <p class="text-emerald-100 text-sm">Upload details of found luggage</p>
+                    </div>
+                </div>
+            </div>
+            
+            <form action="{{ url_for('submit_found') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-5">
+                <!-- Route -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Route Where Found</label>
+                    <select name="route_id" id="depot_route_select" required
+                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-emerald-500 focus:outline-none transition-all bg-white">
+                        <option value="">Select route</option>
+                        {% for route in routes %}
+                        <option value="{{ route.id }}">{{ route.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Date Found -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Date Found</label>
+                    <input type="date" name="date" required
+                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-emerald-500 focus:outline-none transition-all">
+                </div>
+                
+                <!-- Description -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Item Description</label>
+                    <textarea name="notes" required rows="3"
+                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-emerald-500 focus:outline-none transition-all resize-none"
+                        placeholder="Describe the found item (color, type, brand, contents visible)"></textarea>
+                </div>
+                
+                <!-- Image Upload -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Photo of Item</label>
+                    <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-emerald-400 transition-colors">
+                        <input type="file" name="image" accept="image/*" id="image_input" class="hidden">
+                        <label for="image_input" class="cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 mx-auto text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            <p class="text-sm text-gray-600">Click to upload photo</p>
+                            <p class="text-xs text-gray-400 mt-1">JPG, PNG, GIF up to 5MB</p>
+                        </label>
+                        <p id="file_name" class="text-sm text-emerald-600 font-medium mt-2 hidden"></p>
+                    </div>
+                </div>
+                
+                <!-- Submit -->
+                <button type="submit" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-4 rounded-xl shadow-lg transition-all">
+                    Submit Found Report
+                </button>
+            </form>
+        </div>
+        
+        <!-- Matches Panel -->
+        <div class="space-y-6">
+            {% if all_matches %}
+            <div class="card-glass rounded-2xl shadow-xl overflow-hidden opacity-0 animate-fade-in animate-delay-2">
+                <div class="bg-gradient-to-r from-tn-red to-red-700 p-5">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-white">Potential Matches Found!</h2>
+                            <p class="text-red-100 text-sm">Contact these passengers about their lost items</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-5 space-y-4 max-h-[500px] overflow-y-auto">
+                    {% for match_group in all_matches %}
+                    <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="px-2 py-1 bg-amber-200 text-amber-800 rounded-lg text-xs font-bold">
+                                Found: {{ match_group.found_report.id }}
+                            </span>
+                            <span class="text-xs text-gray-500">{{ match_group.found_report.date }}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-4 italic">"{{ match_group.found_report.notes }}"</p>
+                        
+                        {% for lost in match_group.matches %}
+                        <div class="bg-white rounded-lg p-4 border-l-4 border-tn-red mb-2 last:mb-0">
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="flex-1">
+                                    <p class="font-bold text-gray-800">{{ lost.name }}</p>
+                                    <p class="mono text-tn-red font-semibold text-lg">{{ lost.phone }}</p>
+                                    <p class="text-xs text-gray-500 mt-1">{{ lost.source }} → {{ lost.destination }} on {{ lost.date }}</p>
+                                    <p class="text-sm text-gray-600 mt-2 bg-gray-50 rounded-lg p-2">"{{ lost.description }}"</p>
+                                </div>
+                                <a href="tel:{{ lost.phone }}" class="flex-shrink-0 w-10 h-10 bg-emerald-500 hover:bg-emerald-600 rounded-full flex items-center justify-center transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% else %}
+            <div class="card-glass rounded-2xl p-8 text-center opacity-0 animate-fade-in animate-delay-2">
+                <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-700 mb-2">No Matches Yet</h3>
+                <p class="text-gray-500 text-sm">Submit found items to see potential matches with lost reports</p>
+            </div>
+            {% endif %}
+            
+            <!-- Recent Found Reports -->
+            {% if found_reports %}
+            <div class="card-glass rounded-2xl shadow-xl overflow-hidden opacity-0 animate-fade-in animate-delay-3">
+                <div class="bg-gradient-to-r from-gray-700 to-gray-800 p-4">
+                    <h3 class="text-lg font-bold text-white">Your Found Reports</h3>
+                </div>
+                <div class="p-4 space-y-3 max-h-[300px] overflow-y-auto">
+                    {% for report in found_reports | reverse %}
+                    <div class="bg-gray-50 rounded-xl p-4 flex gap-4">
+                        {% if report.image_path %}
+                        <img src="{{ url_for('static', filename=report.image_path) }}" alt="Found item" 
+                            class="w-20 h-20 object-cover rounded-lg flex-shrink-0">
+                        {% else %}
+                        <div class="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        {% endif %}
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="mono text-xs bg-gray-200 px-2 py-0.5 rounded">{{ report.id }}</span>
+                                <span class="text-xs text-gray-500">{{ report.date }}</span>
+                            </div>
+                            <p class="text-sm font-medium text-gray-800">{{ report.route_name }}</p>
+                            <p class="text-xs text-gray-600 truncate">{{ report.notes }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // File input preview
+    const fileInput = document.getElementById('image_input');
+    const fileName = document.getElementById('file_name');
+    
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            fileName.textContent = this.files[0].name;
+            fileName.classList.remove('hidden');
+        }
+    });
+    
+    // Set max date to today
+    const dateInput = document.querySelector('input[type="date"]');
+    if (dateInput) {
+        dateInput.max = new Date().toISOString().split('T')[0];
+    }
+</script>
+{% endblock %}
+
