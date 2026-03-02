@@ -7,12 +7,16 @@ No database - all data stored in memory (resets on restart).
 import os
 import uuid
 from datetime import datetime
-from difflib import SequenceMatcher
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tn-bus-lost-found-dev-key-2026')
+
+# Load the sentence transformer model once globally
+model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # File upload config
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
@@ -130,18 +134,27 @@ def luggage_could_be_at_depot(stops, src, dst, depot_stop):
 
 def is_match(desc_a, desc_b, threshold=0.25):
     """
-    Simple text similarity check using SequenceMatcher.
-    Returns True if similarity ratio >= threshold.
+    Semantic text similarity check using Sentence-BERT.
+    Returns True if similarity score >= threshold.
     """
     if not desc_a or not desc_b:
         return False
-    ratio = SequenceMatcher(None, desc_a.lower(), desc_b.lower()).ratio()
-    return ratio >= threshold
+    similarity_score = semantic_similarity(desc_a.lower(), desc_b.lower())
+    return similarity_score >= threshold
 
 
 def allowed_file(filename):
     """Check if uploaded file has allowed extension."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def semantic_similarity(text1: str, text2: str) -> float:
+    embeddings = model.encode([text1, text2])
+    similarity = cosine_similarity(
+        [embeddings[0]],
+        [embeddings[1]]
+    )[0][0]
+    return float(similarity)
 
 
 def find_matches_for_depot(depot_phone, found_report):
