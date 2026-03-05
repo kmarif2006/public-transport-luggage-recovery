@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Reports - TN Bus Lost Luggage</title>
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@400;500&family=Noto+Sans+Tamil:wght@400;700&display=swap"
+    rel="stylesheet">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+
+<body>
+  <nav class="main-nav">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <i class="fas fa-bus-alt"></i>
+        <span>TN Bus Lost Luggage</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/map.html">Map</a></li>
+        <li><a href="/dashboard.html" class="active">My Reports</a></li>
+        <li><button onclick="handleLogout()" class="logout-link">Logout</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="dashboard-container">
+    <div class="dashboard-header fade-in">
+      <div>
+        <h1 class="tamil-text">எனது அறிக்கைகள்</h1>
+        <h2>My Luggage Reports</h2>
+        <p class="muted">Track and manage your lost item claims</p>
+      </div>
+      <a href="/map.html" class="btn-primary" style="width: auto;">
+        <i class="fas fa-plus-circle"></i> New Report
+      </a>
+    </div>
+
+    <div id="reports-alert"></div>
+
+    <!-- Stats -->
+    <div class="stats-grid slide-up">
+      <div class="stat-card">
+        <div class="stat-icon pending"><i class="fas fa-clock"></i></div>
+        <div class="stat-info">
+          <h3 id="total-reports">0</h3>
+          <p>Total Filed</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon found"><i class="fas fa-search"></i></div>
+        <div class="stat-info">
+          <h3 id="pending-reports">0</h3>
+          <p>Under Review</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon resolved"><i class="fas fa-check-double"></i></div>
+        <div class="stat-info">
+          <h3 id="resolved-reports">0</h3>
+          <p>Resolved</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reports Table -->
+    <div class="data-card slide-up" style="animation-delay: 0.1s;">
+      <div class="card-header">
+        <h3 style="font-size: 1.1rem; color: var(--text-main);"><i class="fas fa-list"></i> Recent Submissions</h3>
+        <button onclick="fetchReports()" class="action-btn"><i class="fas fa-sync-alt"></i> Refresh</button>
+      </div>
+      <div class="table-responsive">
+        <table id="reports-table">
+          <thead>
+            <tr>
+              <th>Item Description</th>
+              <th>Route Details</th>
+              <th>Date Reported</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Loaded via reports.js -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="no-reports-message" class="hidden" style="padding: 4rem; text-align: center;">
+        <i class="fas fa-folder-open" style="font-size: 3rem; color: var(--border); margin-bottom: 1rem;"></i>
+        <p class="muted">No lost luggage reports found in your account.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <span class="official-seal">TNSTC OFFICIAL PASSENGER PORTAL</span>
+      <p class="footer-text">Helping citizens recover lost items across all bus depots of Tamil Nadu.</p>
+    </div>
+  </footer>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/reports.js"></script>
+  <script>
+    function handleLogout() {
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('user_role');
+      window.location.href = '/login.html';
+    }
+  </script>
+</body>
+
+</html>

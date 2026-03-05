@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account - TN Bus Lost Luggage System</title>
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@400;500&family=Noto+Sans+Tamil:wght@400;700&display=swap"
+    rel="stylesheet">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+
+<body>
+  <nav class="main-nav">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <i class="fas fa-bus-alt"></i>
+        <div>
+          <span>TN Bus Lost Luggage</span><br>
+          <small style="font-size: 0.65rem; color: var(--text-muted); opacity: 0.8;">OFFICIAL GOVERNMENT PORTAL</small>
+        </div>
+      </a>
+    </div>
+  </nav>
+
+  <main class="auth-layout">
+    <div class="auth-card fade-in">
+      <div class="text-center mb-3">
+        <h2 class="tamil-text">பதிவு செய்க</h2>
+        <h3>Create Official Account</h3>
+        <p class="muted">Join thousands of citizens tracking their lost items</p>
+      </div>
+
+      <div id="signup-alert"></div>
+
+      <form id="signup-form">
+        <div class="form-group">
+          <label for="name">Full Name (As per Govt. ID)</label>
+          <input type="text" id="name" placeholder="Enter your full name" required>
+        </div>
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" placeholder="name@example.com" required>
+        </div>
+        <!-- Role is defaulted to 'user' in backend for security -->
+        <div class="form-group">
+          <label for="password">Choose Security Password</label>
+          <input type="password" id="password" placeholder="Min. 6 characters" minlength="6" required>
+        </div>
+        <div class="form-group">
+          <label for="confirm-password">Confirm Password</label>
+          <input type="password" id="confirm-password" placeholder="Repeat password" required>
+        </div>
+        <button type="submit" class="btn-primary" id="signup-btn">
+          <span>Create Official Account</span>
+        </button>
+      </form>
+
+      <div class="text-center mt-3">
+        <p class="muted">
+          Already have an account? <a href="/login.html" class="link-gold">Sign In Instead</a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <span class="official-seal">TAMIL NADU STATE TRANSPORT CORPORATION</span>
+      <p class="footer-text">© 2026 Government of Tamil Nadu. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="/js/auth.js"></script>
+</body>
+
+</html>

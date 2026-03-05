@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manager Dashboard - TN Bus Lost Luggage</title>
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@400;500&family=Noto+Sans+Tamil:wght@400;700&display=swap"
+    rel="stylesheet">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    #manager-depot-map {
+      height: 250px;
+      width: 100%;
+      border-radius: var(--radius-md);
+      margin-bottom: 2rem;
+      border: 1px solid var(--border);
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="main-nav">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <i class="fas fa-user-shield"></i>
+        <span>Manager Portal</span>
+      </a>
+      <div class="nav-links">
+        <span id="manager-depot-name" style="color: var(--tn-gold); font-weight: 700; font-size: 0.9rem;">
+          <i class="fas fa-map-marker-alt"></i> Loading Depot...
+        </span>
+        <button id="manager-logout" class="logout-link">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="dashboard-container">
+    <div class="dashboard-header fade-in">
+      <div>
+        <h1 class="tamil-text">நிர்வாக பட்டி</h1>
+        <h2>Depot Management Console</h2>
+        <p class="muted">Official controls for TNSTC / MTC / SETC personnel</p>
+      </div>
+      <div class="header-actions">
+        <button onclick="location.reload()" class="action-btn"><i class="fas fa-sync"></i> Refresh Data</button>
+      </div>
+    </div>
+
+    <div id="manager-alert"></div>
+
+    <!-- Stats -->
+    <div class="stats-grid slide-up">
+      <div class="stat-card">
+        <div class="stat-icon pending"><i class="fas fa-inbox"></i></div>
+        <div class="stat-info">
+          <h3 id="stat-lost-count">0</h3>
+          <p>Incoming Reports</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon found"><i class="fas fa-box"></i></div>
+        <div class="stat-info">
+          <h3 id="stat-found-count">0</h3>
+          <p>Found in Depot</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon resolved"><i class="fas fa-check-circle"></i></div>
+        <div class="stat-info">
+          <h3 id="stat-resolved-count">0</h3>
+          <p>Resolved Cases</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <!-- Post Found Item -->
+      <div class="data-card slide-up" style="animation-delay: 0.1s;">
+        <div class="card-header">
+          <h3><i class="fas fa-plus-circle"></i> Post Found Luggage</h3>
+        </div>
+        <div style="padding: 1.5rem;">
+          <form id="found-luggage-form">
+            <div class="form-group">
+              <label for="found_description">Item Description</label>
+              <textarea id="found_description" name="description" rows="3" placeholder="Describe the item in detail..."
+                required></textarea>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label for="found_date">Date Found</label>
+                <input type="date" id="found_date" name="found_date" required>
+              </div>
+              <div class="form-group">
+                <label for="found_photo">Photo Attachment</label>
+                <input type="file" id="found_photo" name="photo" accept="image/*" required>
+              </div>
+            </div>
+            <button type="submit" class="btn-primary">
+              <i class="fas fa-upload"></i> Upload & Post Item
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Relevant Lost Reports -->
+      <div class="data-card slide-up" style="animation-delay: 0.2s;">
+        <div class="card-header">
+          <h3><i class="fas fa-list-ul"></i> Relevant Lost Reports</h3>
+          <span class="badge" style="background:#F3F4F6;">ALONG ROUTE</span>
+        </div>
+        <div class="table-responsive">
+          <table id="lost-reports-table">
+            <thead>
+              <tr>
+                <th>Passenger Item</th>
+                <th>Contact</th>
+                <th>AI Search</th>
+                <th>Status Update</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Loaded via manager.js -->
+            </tbody>
+          </table>
+        </div>
+        <div id="no-reports-msg" class="hidden" style="padding: 3rem; text-align: center;">
+          <p class="muted">No relevant lost reports found for this depot.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Depot Map View -->
+    <div class="data-card slide-up" style="margin-top: 2rem;">
+      <div class="card-header">
+        <h3><i class="fas fa-map-marked-alt"></i> My Depot Location</h3>
+      </div>
+      <div style="padding: 1.5rem;">
+        <div id="manager-depot-map"></div>
+      </div>
+    </div>
+
+    <!-- My Depot Items -->
+    <div class="data-card slide-up" style="margin-top: 2rem; animation-delay: 0.3s;">
+      <div class="card-header">
+        <h3><i class="fas fa-archive"></i> My Depot Found Items</h3>
+      </div>
+      <div class="table-responsive">
+        <table id="found-items-table">
+          <thead>
+            <tr>
+              <th>Item Detail</th>
+              <th>Found Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Loaded via manager.js -->
+          </tbody>
+        </table>
+      </div>
+      <div id="no-found-items-msg" class="hidden" style="padding: 3rem; text-align: center;">
+        <p class="muted">You haven't posted any found items yet.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- AI Match Modal -->
+  <div id="match-modal" class="hidden"
+    style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 2rem;">
+    <div class="data-card" style="max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto;">
+      <div class="card-header">
+        <h3><i class="fas fa-magic"></i> AI Recommendation Matches</h3>
+        <button class="close-modal"
+          style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+      <div id="match-results-container" style="padding: 1.5rem;">
+        <!-- Loaded via manager.js -->
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-content">
+      <span class="official-seal">TAMIL NADU STATE TRANSPORT CORPORATION</span>
+      <p class="footer-text">Official Depot Management System — Property of Govt. of TN</p>
+    </div>
+  </footer>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/manager.js"></script>
+</body>
+
+</html>

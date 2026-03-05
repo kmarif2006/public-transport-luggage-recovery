@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manager Portal - TN Bus Lost Luggage</title>
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@400;500&family=Noto+Sans+Tamil:wght@400;700&display=swap"
+    rel="stylesheet">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+
+<body>
+  <nav class="main-nav">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <i class="fas fa-user-shield"></i>
+        <div>
+          <span>Depot Manager Portal</span><br>
+          <small style="font-size: 0.65rem; color: var(--text-muted); opacity: 0.8;">OFFICIAL ACCESS ONLY</small>
+        </div>
+      </a>
+    </div>
+  </nav>
+
+  <main class="auth-layout">
+    <div class="auth-card fade-in">
+      <div class="text-center mb-3">
+        <h2 class="tamil-text">நிர்வாகி உள்நுழைவு</h2>
+        <h3>Official Login</h3>
+        <p class="muted">Enter your official credentials for TNSTC / MTC / SETC</p>
+      </div>
+
+      <div id="manager-login-alert"></div>
+
+      <form id="manager-login-form">
+        <div class="form-group">
+          <label for="email">Official Email</label>
+          <input type="email" id="email" placeholder="manager.D001@tnstc.gov.in" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn-primary">
+          <i class="fas fa-sign-in-alt"></i> <span>Login to Dashboard</span>
+        </button>
+      </form>
+
+      <div class="auth-separator">
+        <span>OR OFFICIAL SSO ACCESS</span>
+      </div>
+
+      <div class="oauth-container">
+        <button id="manager-google-login" class="btn-oauth">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+          <span>Sign in with Google Official</span>
+        </button>
+        <button id="manager-ms-login" class="btn-oauth">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="MS">
+          <span>Sign in with Microsoft 365</span>
+        </button>
+      </div>
+
+      <div class="text-center mt-3">
+        <p class="muted">
+          Accessing as a passenger? <a href="/login.html" class="link-gold">Citizen portal</a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <span class="official-seal">DEPARTMENT OF TRANSPORT, TAMIL NADU</span>
+      <p class="footer-text">Unauthorized access is strictly prohibited and subject to legal action.</p>
+    </div>
+  </footer>
+
+  <script src="/js/auth.js"></script>
+</body>
+
+</html>

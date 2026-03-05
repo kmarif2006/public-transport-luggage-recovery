@@ -1,144 +1,21 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}TN Bus Lost & Found{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Outfit', 'system-ui', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    },
-                    colors: {
-                        tn: {
-                            red: '#C41E3A',
-                            gold: '#FFD700',
-                            cream: '#FFF8E7',
-                            dark: '#1A1A2E',
-                            slate: '#2D3748',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body {
-            font-family: 'Outfit', sans-serif;
-        }
-        .mono {
-            font-family: 'JetBrains Mono', monospace;
-        }
-        .gradient-bg {
-            background: linear-gradient(135deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%);
-        }
-        .card-glass {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-        }
-        .input-focus:focus {
-            box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.2);
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #C41E3A 0%, #8B1429 100%);
-            transition: all 0.3s ease;
-        }
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(196, 30, 58, 0.3);
-        }
-        .btn-secondary {
-            background: linear-gradient(135deg, #2D3748 0%, #1A202C 100%);
-        }
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        .animate-fade-in {
-            animation: fadeInUp 0.5s ease-out forwards;
-        }
-        .animate-delay-1 { animation-delay: 0.1s; }
-        .animate-delay-2 { animation-delay: 0.2s; }
-        .animate-delay-3 { animation-delay: 0.3s; }
-    </style>
-</head>
-<body class="gradient-bg min-h-screen text-gray-800">
-    <!-- Header -->
-    <header class="py-4 px-6 border-b border-white/10">
-        <div class="max-w-6xl mx-auto flex items-center justify-between">
-            <a href="{{ url_for('index') }}" class="flex items-center gap-3 group">
-                <div class="w-12 h-12 rounded-xl bg-tn-red flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                    </svg>
-                </div>
-                <div>
-                    <h1 class="text-xl font-bold text-white tracking-tight">TN Bus Lost & Found</h1>
-                    <p class="text-xs text-gray-400 font-medium">Tamil Nadu State Transport</p>
-                </div>
-            </a>
-            
-            <nav class="flex items-center gap-4">
-                {% if session.get('depot_phone') %}
-                <span class="text-sm text-tn-gold font-medium">{{ session.get('depot_name') }}</span>
-                <a href="{{ url_for('depot_logout') }}" class="text-sm text-gray-300 hover:text-white transition-colors">Logout</a>
-                {% endif %}
-            </nav>
-        </div>
-    </header>
-
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        <div class="max-w-6xl mx-auto px-6 pt-4">
-            {% for category, message in messages %}
-            <div class="mb-3 p-4 rounded-xl flex items-center gap-3 animate-fade-in
-                {% if category == 'error' %}bg-red-500/20 border border-red-500/30 text-red-200
-                {% elif category == 'success' %}bg-emerald-500/20 border border-emerald-500/30 text-emerald-200
-                {% else %}bg-blue-500/20 border border-blue-500/30 text-blue-200{% endif %}">
-                {% if category == 'error' %}
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {% elif category == 'success' %}
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {% endif %}
-                <span class="text-sm font-medium">{{ message }}</span>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-    {% endwith %}
-
-    <!-- Main Content -->
-    <main class="max-w-6xl mx-auto px-6 py-8">
+  <head>
+    <meta charset="utf-8" />
+    <title>{% block title %}TN Bus Lost Luggage{% endblock %}</title>
+    <link rel="stylesheet" href="/css/style.css" />
+    {% block extra_css %}{% endblock %}
+  </head>
+  <body>
+    <div class="app-shell">
+      <header>
+        <h1>{% block header %}TN Bus Lost Luggage{% endblock %}</h1>
+        {% block header_actions %}{% endblock %}
+      </header>
+      <main>
         {% block content %}{% endblock %}
-    </main>
-
-    <!-- Footer -->
-    <footer class="py-6 px-6 border-t border-white/10 mt-auto">
-        <div class="max-w-6xl mx-auto text-center">
-            <p class="text-sm text-gray-500">Tamil Nadu State Transport Corporation</p>
-            <p class="text-xs text-gray-600 mt-1">Lost & Found Management System (Demo - Data resets on restart)</p>
-        </div>
-    </footer>
-
-    {% block scripts %}{% endblock %}
-</body>
+      </main>
+    </div>
+    {% block extra_js %}{% endblock %}
+  </body>
 </html>
-

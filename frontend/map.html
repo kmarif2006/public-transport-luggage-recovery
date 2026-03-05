@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Route Map - TN Bus Lost Luggage System</title>
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@400;500&family=Noto+Sans+Tamil:wght@400;700&display=swap"
+    rel="stylesheet">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/map.css">
+</head>
+
+<body class="map-page-body">
+  <nav class="main-nav">
+    <div class="nav-container">
+      <a href="/" class="nav-brand">
+        <i class="fas fa-bus-alt"></i>
+        <span>TN Bus Lost Luggage</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/map.html" class="active">Map</a></li>
+        <li><a href="/dashboard.html">My Reports</a></li>
+        <li><button onclick="handleLogout()" class="logout-link">Logout</button></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="map-layout">
+    <div class="map-instruction">
+      <i class="fas fa-info-circle"></i>
+      <span>Click a bus depot marker to report lost luggage.</span>
+    </div>
+
+    <div class="map-search-overlay">
+      <div class="search-box mb-2" style="flex-direction: column; padding: 0.5rem; gap: 0.5rem;">
+        <div style="display:flex; align-items:center; background:#f3f4f6; border-radius:4px; padding:0 8px;">
+          <i class="fas fa-search" style="color:#6b7280; font-size:0.8rem;"></i>
+          <input type="text" id="source-filter" placeholder="Filter sources..."
+            style="background:transparent; padding:6px; font-size:0.8rem;">
+        </div>
+        <select id="source-depot-select">
+          <option value="">Select Starting Point</option>
+        </select>
+      </div>
+
+      <div class="search-box mb-2" style="flex-direction: column; padding: 0.5rem; gap: 0.5rem;">
+        <div style="display:flex; align-items:center; background:#f3f4f6; border-radius:4px; padding:0 8px;">
+          <i class="fas fa-search" style="color:#6b7280; font-size:0.8rem;"></i>
+          <input type="text" id="destination-filter" placeholder="Filter destinations..."
+            style="background:transparent; padding:6px; font-size:0.8rem;">
+        </div>
+        <select id="destination-depot-select" disabled>
+          <option value="">Select Destination</option>
+        </select>
+      </div>
+
+      <div class="mt-2">
+        <button id="draw-route-btn" class="btn-primary w-100" disabled style="box-shadow: var(--shadow-premium);">
+          <i class="fas fa-route"></i> Calculate & Draw Route
+        </button>
+      </div>
+
+      <div id="route-info" class="hidden mt-2 p-2"
+        style="background:white; border-radius: var(--radius-sm); font-size:0.85rem; box-shadow: var(--shadow-premium); border-left: 4px solid var(--tn-maroon);">
+        <p id="route-summary" style="margin:0 0 8px 0; font-weight:700; color:var(--tn-maroon); font-size: 0.9rem;"></p>
+        <div style="display: flex; flex-direction: column; gap: 4px; color: var(--text-muted);">
+          <span><i class="fas fa-arrows-alt-h"></i> Distance: <strong id="route-distance"
+              style="color:var(--text-main);">0 km</strong></span>
+          <span><i class="fas fa-warehouse"></i> Path Depots: <strong id="route-depot-count"
+              style="color:var(--text-main);">0</strong></span>
+        </div>
+      </div>
+
+      <button id="report-luggage-btn" class="btn-primary w-100 mt-3 hidden"
+        style="background:#22C55E; box-shadow: var(--shadow-premium); padding: 12px; font-weight: 700;">
+        <i class="fas fa-plus-circle"></i> START REPORTING
+      </button>
+    </div>
+
+    <div id="map"></div>
+  </div>
+
+  <!-- Report Luggage Modal -->
+  <div id="report-modal" class="modal-overlay hidden">
+    <div class="auth-card" style="max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; margin: 0;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h2 class="tamil-text" style="margin:0;">தகவல் அறிக்கை</h2>
+        <button onclick="closeReportModal()"
+          style="background:none; border:none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+      <h3 id="selected-depot-name">Reporting to: Depot Name</h3>
+      <p class="muted mb-3">Please provide accurate details for official verification.</p>
+
+      <form id="report-form">
+        <input type="hidden" id="depot-id-input">
+
+        <div class="form-group">
+          <label for="reporter-name">Reporter Full Name</label>
+          <input type="text" id="reporter-name" placeholder="Enter your name" required>
+        </div>
+
+        <div class="form-group">
+          <label for="item-name">Item Name (Short Title)</label>
+          <input type="text" id="item-name" placeholder="e.g. Black Backpack" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label for="bus-number">Bus / Route Number (Optional)</label>
+            <select id="bus-number">
+              <option value="">Select Route</option>
+              <option value="102">102 (Broadway - Kelambakkam)</option>
+              <option value="570">570 (CMBT - Siruseri)</option>
+              <option value="21G">21G (Broadway - Tambaram)</option>
+              <option value="V51">V51 (T.Nagar - Velachery)</option>
+              <option value="Other">Other / Not Sure</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="date-lost">Date Lost</label>
+            <input type="date" id="date-lost" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="item-description">Description (Max 200 chars)</label>
+          <textarea id="item-description" rows="3" maxlength="200" placeholder="Describe unique identification marks..."
+            required></textarea>
+          <small class="muted">Characters: <span id="char-count">0</span> / 200</small>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label for="contact-phone">Contact Number</label>
+            <input type="tel" id="contact-phone" placeholder="10-digit mobile" pattern="[0-9]{10}" required>
+          </div>
+          <div class="form-group">
+            <label for="photo_upload">Photo (Optional)</label>
+            <input type="file" id="photo_upload" accept="image/*">
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" id="submit-report-btn">
+          <i class="fas fa-paper-plane"></i> Submit Official Report
+        </button>
+        <button type="button" class="btn-secondary mt-2" onclick="closeReportModal()"
+          style="width:100%; padding:0.8rem; border:1px solid var(--border); border-radius:var(--radius-sm); cursor:pointer;">
+          Cancel & Return to Map
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+  <!-- Custom JS -->
+  <script src="/js/auth.js"></script>
+  <script src="/js/map.js"></script>
+  <script>
+    function handleLogout() {
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('user_role');
+      window.location.href = '/login.html';
+    }
+  </script>
+</body>
+
+</html>

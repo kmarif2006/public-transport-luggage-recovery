@@ -1,0 +1,334 @@
+/* ==========================================================================
+   MAIN STYLES - Tamil Nadu Bus Depot Lost Luggage Recovery
+   Branding: Ministerial Maroon (#7A0C0C) & Temple Gold (#D4AF37)
+   ========================================================================== */
+
+:root {
+    --tn-maroon: #7A0C0C;
+    --tn-maroon-dark: #5A0808;
+    --tn-gold: #D4AF37;
+    --tn-gold-light: #F1D592;
+    --tn-gray: #F5F5F5;
+    --white: #FFFFFF;
+    --text-main: #1F2937;
+    --text-muted: #4B5563;
+    --border: #D1D5DB;
+
+    /* Status Colors - Official Govt Mapping */
+    --status-reported: #F97316;
+    /* Orange */
+    --status-under_review: #EAB308;
+    /* Yellow */
+    --status-found: #22C55E;
+    /* Green */
+    --status-returned: #3B82F6;
+    /* Blue */
+
+    --shadow-premium: 0 4px 20px rgba(0, 0, 0, 0.08);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 20px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', 'Roboto', sans-serif;
+    background-color: var(--tn-gray);
+    color: var(--text-main);
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* == Typography == */
+h1,
+h2,
+h3,
+h4 {
+    font-family: 'Noto Sans Tamil', 'Poppins', sans-serif;
+    color: var(--tn-maroon);
+}
+
+/* == Navbar == */
+.main-nav {
+    background-color: var(--white);
+    padding: 1rem 2rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-bottom: 3px solid var(--tn-gold);
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: var(--tn-maroon);
+}
+
+.nav-brand i {
+    font-size: 1.5rem;
+    color: var(--tn-gold);
+}
+
+.nav-links {
+    display: flex;
+    gap: 1.5rem;
+    list-style: none;
+    align-items: center;
+}
+
+.nav-links a {
+    text-decoration: none;
+    color: var(--text-main);
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: color 0.2s;
+}
+
+.nav-links a:hover,
+.nav-links a.active {
+    color: var(--tn-maroon);
+}
+
+.logout-link {
+    background: none;
+    border: 1px solid var(--tn-maroon);
+    color: var(--tn-maroon);
+    padding: 0.4rem 1rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.logout-link:hover {
+    background-color: var(--tn-maroon);
+    color: var(--white);
+}
+
+/* == Auth Layout == */
+.auth-layout {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.auth-card {
+    background: var(--white);
+    padding: 3rem;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-premium);
+    width: 100%;
+    max-width: 450px;
+    border-top: 5px solid var(--tn-maroon);
+}
+
+/* == Forms == */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--tn-maroon);
+}
+
+.btn-primary {
+    background-color: var(--tn-maroon);
+    color: var(--white);
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.btn-primary:hover {
+    background-color: var(--tn-maroon-dark);
+}
+
+.btn-primary:active {
+    transform: scale(0.98);
+}
+
+/* == OAuth & Separators == */
+.auth-separator {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 1.5rem 0;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.auth-separator::before,
+.auth-separator::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border);
+}
+
+.auth-separator:not(:empty)::before {
+    margin-right: .5em;
+}
+
+.auth-separator:not(:empty)::after {
+    margin-left: .5em;
+}
+
+.oauth-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.btn-oauth {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    background: var(--white);
+    border: 1px solid var(--border);
+    padding: 0.75rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.btn-oauth:hover {
+    background: var(--tn-gray);
+    border-color: var(--tn-maroon);
+}
+
+.btn-oauth img {
+    width: 20px;
+    height: 20px;
+}
+
+/* == Footer == */
+footer {
+    background-color: var(--white);
+    padding: 2rem;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+}
+
+.footer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.footer-text {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.official-seal {
+    font-weight: 700;
+    color: var(--tn-maroon);
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+/* == Alerts & Loaders == */
+.alert {
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+}
+
+.alert-error {
+    background-color: #FEE2E2;
+    color: #991B1B;
+    border: 1px solid #FECACA;
+}
+
+.alert-success {
+    background-color: #D1FAE5;
+    color: #065F46;
+    border: 1px solid #A7F3D0;
+}
+
+.loader {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid var(--tn-maroon);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 768px) {
+    .nav-links {
+        display: none;
+    }
+
+    .auth-card {
+        padding: 2rem;
+    }
+}
+
+/* == Global Utilities == */
+.hidden {
+    display: none !important;
+}

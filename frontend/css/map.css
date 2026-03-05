@@ -1,0 +1,229 @@
+/* ==========================================================================
+   MAP STYLES - Leaflet Integration & Layout
+   ========================================================================== */
+
+.map-page-body {
+    height: 100vh;
+    overflow: hidden;
+}
+
+.map-layout {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#map {
+    flex: 1;
+    width: 100%;
+    min-height: 400px;
+    z-index: 10;
+}
+
+/* == Instruction Overlay == */
+.map-instruction {
+    position: absolute;
+    top: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    background-color: rgba(122, 12, 12, 0.9);
+    color: var(--white);
+    padding: 0.75rem 1.5rem;
+    border-radius: 99px;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* == Custom Markers == */
+.custom-bus-icon {
+    background-color: var(--white);
+    border: 2px solid var(--tn-maroon);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--tn-maroon);
+    font-size: 1.2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s;
+}
+
+.custom-bus-icon:hover {
+    transform: scale(1.1);
+    background-color: var(--tn-maroon);
+    color: var(--white);
+}
+
+/* Marker Pin */
+.marker-pin {
+    width: 30px;
+    height: 30px;
+    border-radius: 50% 50% 50% 0;
+    background: var(--tn-maroon);
+    position: absolute;
+    transform: rotate(-45deg);
+    left: 50%;
+    top: 50%;
+    margin: -15px 0 0 -15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    border: 2px solid white;
+}
+
+.marker-pin i {
+    transform: rotate(45deg);
+    color: white;
+    font-size: 1rem;
+}
+
+.custom-bus-marker.source .marker-pin {
+    background: #22C55E;
+}
+
+.custom-bus-marker.destination .marker-pin {
+    background: #D4AF37;
+}
+
+.custom-bus-marker.selected .marker-pin {
+    transform: rotate(-45deg) scale(1.2);
+}
+
+/* Popup Actions */
+.depot-popup {
+    padding: 0.5rem;
+}
+
+.depot-popup h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--tn-maroon);
+}
+
+.popup-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.btn-sm {
+    padding: 0.4rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.btn-source {
+    background: #22C55E;
+    color: white;
+}
+
+.btn-dest {
+    background: #D4AF37;
+    color: white;
+}
+
+/* == Search Overlay == */
+.map-search-overlay {
+    position: absolute;
+    top: 1.5rem;
+    left: 1.5rem;
+    z-index: 100;
+    width: 300px;
+}
+
+.search-box {
+    display: flex;
+    background: white;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-premium);
+    overflow: hidden;
+    width: 250px;
+}
+
+.search-box select {
+    width: 100%;
+    border: none;
+    padding: 0.6rem;
+    font-size: 0.85rem;
+    background: white;
+}
+
+.mb-2 {
+    margin-bottom: 0.5rem;
+}
+
+.mt-3 {
+    margin-top: 1rem;
+}
+
+.mt-2 {
+    margin-top: 0.5rem;
+}
+
+.p-2 {
+    padding: 0.5rem;
+}
+
+.search-box input {
+    border: none;
+    flex: 1;
+    padding: 0.5rem;
+    outline: none;
+}
+
+.search-box button {
+    background: var(--tn-maroon);
+    color: var(--white);
+    border: none;
+    padding: 0 1rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+/* == Modal & Overlay Refactor == */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.3s, visibility 0.3s;
+}
+
+.modal-overlay.hidden {
+    display: none !important;
+    opacity: 0;
+    visibility: hidden;
+}
+
+.btn-secondary {
+    background: white;
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background: var(--tn-gray);
+    border-color: var(--tn-maroon);
+}
