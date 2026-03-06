@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timezone
 
 from bson import ObjectId
@@ -100,7 +101,7 @@ def login():
 @auth_bp.get("/google/url")
 def google_auth_url():
     """Return the Google OAuth URL so frontend can redirect user."""
-    state = "secure-random-state"  # In production, generate and store per-session
+    state = secrets.token_urlsafe(16)
     url = get_google_auth_url(state)
     return jsonify({"url": url})
 
@@ -148,7 +149,7 @@ def google_callback():
 
 @auth_bp.get("/microsoft/url")
 def microsoft_auth_url():
-    state = "secure-random-state"
+    state = secrets.token_urlsafe(16)
     url = get_ms_auth_url(state)
     return jsonify({"url": url})
 

@@ -4,22 +4,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Route Map - TN Bus Lost Luggage System</title>
+  <title>Route Map — TN Bus Lost Luggage</title>
   <!-- Google Fonts -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@400;500&family=Noto+Sans+Tamil:wght@400;700&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css">
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Custom CSS -->
+  <!-- App CSS -->
   <link rel="stylesheet" href="/css/main.css">
   <link rel="stylesheet" href="/css/map.css">
 </head>
 
 <body class="map-page-body">
+
+  <!-- ===== Navbar ===== -->
   <nav class="main-nav">
     <div class="nav-container">
       <a href="/" class="nav-brand">
@@ -29,149 +29,222 @@
       <ul class="nav-links">
         <li><a href="/map.html" class="active">Map</a></li>
         <li><a href="/dashboard.html">My Reports</a></li>
-        <li><button onclick="handleLogout()" class="logout-link">Logout</button></li>
+        <li>
+          <button id="logout-btn" class="logout-link">
+            <i class="fas fa-sign-out-alt"></i> Logout
+          </button>
+        </li>
       </ul>
     </div>
   </nav>
 
+  <!-- ===== Map Layout ===== -->
   <div class="map-layout">
-    <div class="map-instruction">
-      <i class="fas fa-info-circle"></i>
-      <span>Click a bus depot marker to report lost luggage.</span>
+
+    <!-- Instruction Banner (centered, above map) -->
+    <div class="map-instruction" id="map-instruction">
+      <i class="fas fa-hand-pointer"></i>
+      <span>Tap a bus depot on the map to start</span>
     </div>
 
-    <div class="map-search-overlay">
-      <div class="search-box mb-2" style="flex-direction: column; padding: 0.5rem; gap: 0.5rem;">
-        <div style="display:flex; align-items:center; background:#f3f4f6; border-radius:4px; padding:0 8px;">
-          <i class="fas fa-search" style="color:#6b7280; font-size:0.8rem;"></i>
-          <input type="text" id="source-filter" placeholder="Filter sources..."
-            style="background:transparent; padding:6px; font-size:0.8rem;">
+    <!-- ===== Left Control Panel ===== -->
+    <div class="map-search-overlay" id="control-panel">
+
+      <!-- Source Depot -->
+      <div class="search-box">
+        <div class="filter-row">
+          <i class="fas fa-search"></i>
+          <input type="text" id="source-filter" placeholder="Filter start depots...">
         </div>
-        <select id="source-depot-select">
-          <option value="">Select Starting Point</option>
+        <select id="source-depot-select" aria-label="Select Starting Depot">
+          <option value="">🟢 Select Starting Point</option>
         </select>
       </div>
 
-      <div class="search-box mb-2" style="flex-direction: column; padding: 0.5rem; gap: 0.5rem;">
-        <div style="display:flex; align-items:center; background:#f3f4f6; border-radius:4px; padding:0 8px;">
-          <i class="fas fa-search" style="color:#6b7280; font-size:0.8rem;"></i>
-          <input type="text" id="destination-filter" placeholder="Filter destinations..."
-            style="background:transparent; padding:6px; font-size:0.8rem;">
+      <!-- Destination Depot -->
+      <div class="search-box">
+        <div class="filter-row">
+          <i class="fas fa-search"></i>
+          <input type="text" id="destination-filter" placeholder="Filter destination depots...">
         </div>
-        <select id="destination-depot-select" disabled>
-          <option value="">Select Destination</option>
+        <select id="destination-depot-select" disabled aria-label="Select Destination Depot">
+          <option value="">🏁 Select Destination</option>
         </select>
       </div>
 
-      <div class="mt-2">
-        <button id="draw-route-btn" class="btn-primary w-100" disabled style="box-shadow: var(--shadow-premium);">
-          <i class="fas fa-route"></i> Calculate & Draw Route
-        </button>
-      </div>
-
-      <div id="route-info" class="hidden mt-2 p-2"
-        style="background:white; border-radius: var(--radius-sm); font-size:0.85rem; box-shadow: var(--shadow-premium); border-left: 4px solid var(--tn-maroon);">
-        <p id="route-summary" style="margin:0 0 8px 0; font-weight:700; color:var(--tn-maroon); font-size: 0.9rem;"></p>
-        <div style="display: flex; flex-direction: column; gap: 4px; color: var(--text-muted);">
-          <span><i class="fas fa-arrows-alt-h"></i> Distance: <strong id="route-distance"
-              style="color:var(--text-main);">0 km</strong></span>
-          <span><i class="fas fa-warehouse"></i> Path Depots: <strong id="route-depot-count"
-              style="color:var(--text-main);">0</strong></span>
-        </div>
-      </div>
-
-      <button id="report-luggage-btn" class="btn-primary w-100 mt-3 hidden"
-        style="background:#22C55E; box-shadow: var(--shadow-premium); padding: 12px; font-weight: 700;">
-        <i class="fas fa-plus-circle"></i> START REPORTING
+      <!-- Draw Route Button -->
+      <button id="draw-route-btn" class="btn-primary" disabled>
+        <i class="fas fa-route"></i> Calculate Route
       </button>
-    </div>
 
-    <div id="map"></div>
-  </div>
-
-  <!-- Report Luggage Modal -->
-  <div id="report-modal" class="modal-overlay hidden">
-    <div class="auth-card" style="max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; margin: 0;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-        <h2 class="tamil-text" style="margin:0;">தகவல் அறிக்கை</h2>
-        <button onclick="closeReportModal()"
-          style="background:none; border:none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+      <!-- Route Info (hidden until route drawn) -->
+      <div id="route-info" class="hidden">
+        <p id="route-summary"></p>
+        <div class="route-stats">
+          <span><i class="fas fa-road"></i> <strong id="route-distance">—</strong></span>
+          <span><i class="fas fa-warehouse"></i> <strong id="route-depot-count">—</strong> depots</span>
+        </div>
       </div>
-      <h3 id="selected-depot-name">Reporting to: Depot Name</h3>
-      <p class="muted mb-3">Please provide accurate details for official verification.</p>
 
-      <form id="report-form">
+      <!-- Report Button (hidden until route drawn) -->
+      <button id="report-luggage-btn" class="btn-primary hidden" style="background: #16a34a; margin-top: 0.25rem;">
+        <i class="fas fa-plus-circle"></i> Report Lost Luggage
+      </button>
+
+    </div><!-- /control-panel -->
+
+    <!-- ===== The Leaflet Map ===== -->
+    <div id="map"></div>
+
+  </div><!-- /map-layout -->
+
+  <!-- ===== Report Modal ===== -->
+  <div id="report-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="auth-card" style="max-width: 580px; width: 100%; max-height: 92vh; overflow-y: auto; margin: 0;">
+
+      <!-- Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
+        <div>
+          <h2 id="modal-title" style="margin:0; font-size: 1.3rem;">📋 Report Lost Luggage</h2>
+          <p style="margin:0; color:#6b7280; font-size:0.82rem;">தமிழ்நாடு பேருந்து இழந்த சாமான் அறிக்கை</p>
+        </div>
+        <button onclick="closeReportModal()"
+          style="background:none; border:none; font-size: 1.6rem; cursor: pointer; line-height:1; color:#6b7280;"
+          aria-label="Close modal">&times;</button>
+      </div>
+
+      <!-- Route context -->
+      <div id="modal-route-context"
+        style="background:#f0fdf4; border: 1px solid #bbf7d0; border-radius:8px; padding:0.75rem 1rem; margin-bottom:1.2rem; font-size:0.85rem; color:#166534;">
+        <i class="fas fa-route"></i> <strong id="modal-route-text">Route</strong>
+      </div>
+
+      <form id="report-form" novalidate>
         <input type="hidden" id="depot-id-input">
 
+        <!-- Item Name -->
         <div class="form-group">
-          <label for="reporter-name">Reporter Full Name</label>
-          <input type="text" id="reporter-name" placeholder="Enter your name" required>
+          <label for="item-name"><i class="fas fa-suitcase"></i> What did you lose? <span
+              style="color:red">*</span></label>
+          <input type="text" id="item-name" placeholder="e.g. Black backpack, red trolley bag" required>
         </div>
 
+        <!-- Description -->
         <div class="form-group">
-          <label for="item-name">Item Name (Short Title)</label>
-          <input type="text" id="item-name" placeholder="e.g. Black Backpack" required>
+          <label for="item-description">
+            <i class="fas fa-align-left"></i> Describe it clearly
+            <span style="color:red">*</span>
+          </label>
+          <textarea id="item-description" rows="3" maxlength="300"
+            placeholder="Colour, size, brand, special marks... The more detail, the better the AI match."
+            required></textarea>
+          <small style="color:#9ca3af">
+            <span id="char-count">0</span>/300 characters
+          </small>
         </div>
 
+        <!-- Date + Bus Number row -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
           <div class="form-group">
-            <label for="bus-number">Bus / Route Number (Optional)</label>
-            <select id="bus-number">
-              <option value="">Select Route</option>
-              <option value="102">102 (Broadway - Kelambakkam)</option>
-              <option value="570">570 (CMBT - Siruseri)</option>
-              <option value="21G">21G (Broadway - Tambaram)</option>
-              <option value="V51">V51 (T.Nagar - Velachery)</option>
-              <option value="Other">Other / Not Sure</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="date-lost">Date Lost</label>
+            <label for="date-lost"><i class="fas fa-calendar"></i> Date Lost <span style="color:red">*</span></label>
             <input type="date" id="date-lost" required>
           </div>
+          <div class="form-group">
+            <label for="bus-number"><i class="fas fa-bus"></i> Bus Number <small
+                style="color:#9ca3af">(optional)</small></label>
+            <input type="text" id="bus-number" placeholder="e.g. TN01 AB 1234">
+          </div>
         </div>
 
-        <div class="form-group">
-          <label for="item-description">Description (Max 200 chars)</label>
-          <textarea id="item-description" rows="3" maxlength="200" placeholder="Describe unique identification marks..."
-            required></textarea>
-          <small class="muted">Characters: <span id="char-count">0</span> / 200</small>
-        </div>
-
+        <!-- Contact + Photo row -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
           <div class="form-group">
-            <label for="contact-phone">Contact Number</label>
-            <input type="tel" id="contact-phone" placeholder="10-digit mobile" pattern="[0-9]{10}" required>
+            <label for="contact-phone"><i class="fas fa-phone"></i> Your Mobile <span style="color:red">*</span></label>
+            <input type="tel" id="contact-phone" placeholder="10-digit number" pattern="[0-9]{10}" required>
           </div>
           <div class="form-group">
-            <label for="photo_upload">Photo (Optional)</label>
-            <input type="file" id="photo_upload" accept="image/*">
+            <label for="photo_upload"><i class="fas fa-camera"></i> Photo <small
+                style="color:#9ca3af">(optional)</small></label>
+            <input type="file" id="photo_upload" accept="image/*" style="padding-top:0.35rem;">
           </div>
         </div>
 
-        <button type="submit" class="btn-primary" id="submit-report-btn">
-          <i class="fas fa-paper-plane"></i> Submit Official Report
+        <!-- Submit -->
+        <button type="submit" class="btn-primary" id="submit-report-btn" style="margin-top: 0.5rem;">
+          <i class="fas fa-paper-plane"></i> Submit Report
         </button>
-        <button type="button" class="btn-secondary mt-2" onclick="closeReportModal()"
-          style="width:100%; padding:0.8rem; border:1px solid var(--border); border-radius:var(--radius-sm); cursor:pointer;">
-          Cancel & Return to Map
+        <button type="button" class="btn-primary btn-secondary mt-2" onclick="closeReportModal()"
+          style="padding:0.7rem;">
+          <i class="fas fa-arrow-left"></i> Back to Map
         </button>
       </form>
     </div>
   </div>
 
-  <!-- Leaflet JS -->
+  <!-- Leaflet + Routing JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-  <!-- Custom JS -->
+  <!-- App JS -->
   <script src="/js/auth.js"></script>
-  <script src="/js/map.js"></script>
+  <script src="/js/map.js?v=5.0"></script>
   <script>
-    function handleLogout() {
+    /** 
+     * ULTIMATE FALLBACK & TRACE:
+     */
+    console.log('[MAP-INLINE] Script block evaluated.');
+
+    function runBoot() {
+      console.log('[MAP-INLINE] runBoot() starting...');
+
+      const token = localStorage.getItem('jwt_token');
+      console.log('[MAP-INLINE] Token status:', !!token);
+
+      if (!token) {
+        console.warn('[MAP-INLINE] Redirecting to login.');
+        window.location.href = '/login.html';
+        return;
+      }
+
+      console.log('[MAP-INLINE] Checking for L...');
+      if (typeof L === 'undefined') {
+        console.error('[MAP-INLINE] Leaflet (L) is MISSING!');
+        return;
+      }
+      console.log('[MAP-INLINE] L found. tnMap status:', !!window.tnMap);
+
+      if (!window.tnMap) {
+        try {
+          console.log('[MAP-INLINE] Checking for initMap function...');
+          if (typeof initMap === 'function') {
+            console.log('[MAP-INLINE] Calling initMap()...');
+            initMap();
+            console.log('[MAP-INLINE] initMap() completed.');
+          } else {
+            console.error('[MAP-INLINE] initMap function NOT FOUND!');
+          }
+        } catch (e) {
+          console.error('[MAP-INLINE] CRASH during boot:', e);
+        }
+      } else {
+        console.log('[MAP-INLINE] Map already initialized (tnMap exists).');
+      }
+    }
+
+    if (document.readyState === 'complete') {
+      runBoot();
+    } else {
+      window.addEventListener('load', runBoot);
+    }
+
+    // Heartbeat to see if JS is still alive
+    setInterval(() => console.log('[MAP-HEARTBEAT] ' + new Date().toLocaleTimeString()), 2000);
+
+    // Logout handler
+    document.getElementById('logout-btn').addEventListener('click', () => {
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('user_role');
       window.location.href = '/login.html';
-    }
+    });
   </script>
 </body>
 

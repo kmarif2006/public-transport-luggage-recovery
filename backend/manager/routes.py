@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 
 from ..auth.jwt_handler import jwt_required
 from ..extensions import mongo, socketio
-from ..luggage.routes import _report_to_dict
+from ..utils import report_to_dict
 from ..semantic_matcher import matcher
 
 manager_bp = Blueprint("manager", __name__)
@@ -36,7 +36,7 @@ def manager_reports():
         ]
     }).sort("created_at", -1)
     
-    return jsonify({"reports": [_report_to_dict(r) for r in cursor]})
+    return jsonify({"reports": [report_to_dict(r) for r in cursor]})
 
 @manager_bp.post("/found-luggage")
 @jwt_required(roles=["manager"])

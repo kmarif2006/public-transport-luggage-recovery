@@ -5,35 +5,21 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from flask import Blueprint, jsonify, request, current_app
 from werkzeug.utils import secure_filename
-from thefuzz import fuzz
 
 from ..auth.jwt_handler import jwt_required
 from ..extensions import mongo, socketio
 from ..semantic_matcher import matcher
+from ..utils import report_to_dict
 
 luggage_bp = Blueprint("luggage", __name__)
+
+# Internal alias kept for backward compatibility within this module
+_report_to_dict = report_to_dict
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def _report_to_dict(doc: dict) -> dict:
-    return {
-        "id": str(doc["_id"]),
-        "user_id": doc.get("user_id"),
-        "source_depot_id": doc.get("source_depot_id"),
-        "destination_depot_id": doc.get("destination_depot_id"),
-        "route_depots": doc.get("route_depots", []),
-        "item_name": doc.get("item_name"),
-        "item_description": doc.get("item_description"),
-        "date_lost": doc.get("date_lost"),
-        "bus_number": doc.get("bus_number"),
-        "contact_phone": doc.get("contact_phone"),
-        "photo_url": doc.get("photo_url"),
-        "status": doc.get("status", "reported"),
-        "created_at": doc.get("created_at").isoformat() if doc.get("created_at") else None,
-    }
 
 @luggage_bp.post("/report-luggage")
 @jwt_required()
@@ -102,26 +88,32 @@ def report_luggage():
 
     matches = []
     if found_items:
-        processed_found = []
-        for f in found_items:
-            processed_found.append({
-                "found_id": str(f["_id"]),
+        processed_found = [
+            {
+                "found_id"   : str(f["_id"]),
                 "description": f.get("description", ""),
-                "photo_url": f.get("photo_url"),
-                "depot_id": f.get("depot_id"),
-                "found_date": f.get("found_date")
-            })
-        
-        matches = matcher.find_matches(item_description, processed_found, threshold=0.35)
+                "photo_url"  : f.get("photo_url"),
+                "depot_id"   : f.get("depot_id"),
+                "found_date" : f.get("found_date"),
+            }
+            for f in found_items
+        ]
+        # Advanced multi-signal matching with route proximity
+        matches = matcher.find_matches_advanced(
+            item_description, processed_found,
+            route_depots=route_depots, threshold=0.20
+        )
+        print(f"[AI] Matched {len(matches)} found items for new report")
 
     # Real-time notification to managers along the route
+    serialized = report_to_dict(report)
     for d_id in search_depots:
-        socketio.emit("new_lost_report", {"report": _report_to_dict(report)}, room=f"depot_{d_id}")
+        socketio.emit("new_lost_report", {"report": serialized}, room=f"depot_{d_id}")
 
     return jsonify({
         "message": "Report submitted",
-        "report": _report_to_dict(report),
-        "matches": matches[:10] 
+        "report" : serialized,
+        "matches": matches[:10]
     }), 201
 
 @luggage_bp.get("/my-reports")
@@ -173,6 +165,11 @@ def get_my_report_matches(report_id):
     if not found_items:
         return jsonify({"matches": []})
 
-    # AI Match Score Calculation
-    matches = matcher.find_matches(report.get("item_description", ""), found_items, threshold=0.35)
+    # Advanced multi-signal AI Match Score
+    matches = matcher.find_matches_advanced(
+        report.get("item_description", ""),
+        found_items,
+        route_depots=search_depots,
+        threshold=0.20,
+    )
     return jsonify({"matches": matches})
