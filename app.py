@@ -11,9 +11,22 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.utils import secure_filename
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+from pymongo import MongoClient
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tn-bus-lost-found-dev-key-2026')
+
+# MongoDB Setup
+MONGO_URI = os.environ.get('MONGO_URI')
+client = MongoClient(MONGO_URI)
+db = client['tn_bus_lost_found']
+lost_collection = db['lost_reports']
+found_collection = db['found_reports']
+depots_collection = db['depots']
+
 
 # Load the sentence transformer model once globally
 model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -83,11 +96,21 @@ DEPOTS = {
 }
 
 # ============================================================================
-# IN-MEMORY STORAGE
+# STORAGE HELPERS
 # ============================================================================
 
-lost_reports = []
-found_reports = []
+def get_lost_reports():
+    return list(lost_collection.find().sort("created_at", -1))
+
+def get_found_reports():
+    return list(found_collection.find().sort("created_at", -1))
+
+def get_depots():
+    depots = {}
+    for d in depots_collection.find():
+        depots[d["phone"]] = d
+    return depots
+
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -167,7 +190,8 @@ def find_matches_for_depot(depot_phone, found_report):
     4. Description similarity passes threshold
     """
     matches = []
-    depot = DEPOTS.get(depot_phone)
+    depots = get_depots()
+    depot = depots.get(depot_phone)
     if not depot:
         return matches
     
@@ -177,7 +201,8 @@ def find_matches_for_depot(depot_phone, found_report):
     
     depot_stop = depot["stop"]
     
-    for lost in lost_reports:
+    for lost in get_lost_reports():
+
         # Check route match
         if lost["route_id"] != found_report["route_id"]:
             continue
@@ -212,7 +237,8 @@ def index():
 @app.route('/depot-login')
 def depot_login_page():
     """Depot login page."""
-    return render_template('depot_login.html', depots=DEPOTS)
+    return render_template('depot_login.html', depots=get_depots())
+
 
 
 @app.route('/lost', methods=['POST'])
@@ -256,9 +282,10 @@ def submit_lost():
         "created_at": datetime.now().isoformat()
     }
     
-    lost_reports.append(report)
+    lost_collection.insert_one(report)
     
     flash(f'Lost report submitted successfully! Reference ID: {report["id"]}', 'success')
+
     return redirect(url_for('index'))
 
 
@@ -281,11 +308,13 @@ def depot_login():
     phone = request.form.get('phone')
     password = request.form.get('password')
     
-    if phone in DEPOTS and DEPOTS[phone]["password"] == password:
+    depots = get_depots()
+    if phone in depots and depots[phone]["password"] == password:
         session['depot_phone'] = phone
-        session['depot_name'] = DEPOTS[phone]["name"]
-        flash(f'Welcome, {DEPOTS[phone]["name"]}!', 'success')
+        session['depot_name'] = depots[phone]["name"]
+        flash(f'Welcome, {depots[phone]["name"]}!', 'success')
         return redirect(url_for('depot_dashboard'))
+
     
     flash('Invalid phone number or password.', 'error')
     return redirect(url_for('depot_login_page'))
@@ -308,7 +337,8 @@ def depot_dashboard():
         return redirect(url_for('depot_login_page'))
     
     depot_phone = session['depot_phone']
-    depot = DEPOTS.get(depot_phone)
+    depots = get_depots()
+    depot = depots.get(depot_phone)
     
     if not depot:
         session.pop('depot_phone', None)
@@ -319,7 +349,8 @@ def depot_dashboard():
     depot_routes = [r for r in ROUTES if r["id"] in depot["routes"]]
     
     # Get found reports submitted by this depot
-    depot_found = [f for f in found_reports if f.get("depot_phone") == depot_phone]
+    depot_found = list(found_collection.find({"depot_phone": depot_phone}).sort("created_at", -1))
+
     
     # Get all matches for this depot's found reports
     all_matches = []
@@ -349,9 +380,11 @@ def submit_found():
         return redirect(url_for('depot_login_page'))
     
     depot_phone = session['depot_phone']
-    depot = DEPOTS.get(depot_phone)
+    depots = get_depots()
+    depot = depots.get(depot_phone)
     
     if not depot:
+
         flash('Invalid depot session.', 'error')
         return redirect(url_for('depot_login_page'))
     
@@ -394,9 +427,10 @@ def submit_found():
         "created_at": datetime.now().isoformat()
     }
     
-    found_reports.append(report)
+    found_collection.insert_one(report)
     
     # Find matches immediately
+
     matches = find_matches_for_depot(depot_phone, report)
     
     if matches:

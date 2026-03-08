@@ -1,150 +1,154 @@
 {% extends "base.html" %}
 
-{% block title %}Report Lost Luggage - TN Bus Lost & Found{% endblock %}
+{% block title %}Report Lost Luggage / தொலைந்த உடைமை அறிக்கை - TN Bus Lost & Found{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto">
-    <div class="grid lg:grid-cols-5 gap-8">
-        
-        <!-- Lost Luggage Report Form -->
-        <div class="lg:col-span-3 card-glass rounded-2xl shadow-2xl overflow-hidden opacity-0 animate-fade-in animate-delay-1">
-            <div class="bg-gradient-to-r from-tn-red to-red-700 p-6">
-                <div class="flex items-center gap-4">
-                    <div class="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h2 class="text-2xl font-bold text-white">Report Lost Luggage</h2>
-                        <p class="text-red-100 text-sm">For passengers who lost items on the bus</p>
-                    </div>
+<div class="max-w-[1200px] mx-auto">
+    <div class="grid lg:grid-cols-12 gap-8">
+
+        <!-- Left: Lost Luggage Report Form -->
+        <div class="lg:col-span-8">
+            <div class="card-professional overflow-hidden">
+                <div class="bg-tn-blue p-6 text-white text-center">
+                    <h2 class="text-2xl font-heading font-bold uppercase tracking-wide">Report Lost Luggage</h2>
+                    <p class="font-tamil text-sm mt-1">தொலைந்த உடைமை அறிக்கை</p>
                 </div>
+
+                <form action="{{ url_for('submit_lost') }}" method="POST" class="p-8 space-y-6">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <!-- Name -->
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-bold text-slate-700">
+                                Your Name / பயணியர் பெயர் <span class="text-tn-red">*</span>
+                            </label>
+                            <input type="text" name="name" required
+                                class="w-full input-gov font-medium input-focus h-[40px] px-3 border border-slate-300 rounded-md"
+                                placeholder="Enter full name">
+                        </div>
+
+                        <!-- Phone -->
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-bold text-slate-700">
+                                Phone Number / கைபேசி எண் <span class="text-tn-red">*</span>
+                            </label>
+                            <input type="tel" name="phone" required pattern="[0-9]{10}"
+                                class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-bold mono input-focus"
+                                placeholder="10-digit mobile number">
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <!-- Route Selection -->
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-bold text-slate-700">
+                                Bus Route / பேருந்து வழித்தடம் <span class="text-tn-red">*</span>
+                            </label>
+                            <select name="route_id" id="route_select" required
+                                class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
+                                <option value="">Select your route</option>
+                                {% for route in routes %}
+                                <option value="{{ route.id }}" data-stops="{{ route.stops | join(',') }}">{{ route.name
+                                    }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Date -->
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-bold text-slate-700">
+                                Travel Date / பயணத் தேதி <span class="text-tn-red">*</span>
+                            </label>
+                            <input type="date" name="date" required
+                                class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium input-focus">
+                        </div>
+                    </div>
+
+                    <!-- Source & Destination -->
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-bold text-slate-700">
+                                Boarded At / ஏறிய இடம் <span class="text-tn-red">*</span>
+                            </label>
+                            <select name="source" id="source_select" required
+                                class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
+                                <option value="">Select stop</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-bold text-slate-700">
+                                Alighted At / இறங்கிய இடம் <span class="text-tn-red">*</span>
+                            </label>
+                            <select name="destination" id="dest_select" required
+                                class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
+                                <option value="">Select stop</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="space-y-1.5">
+                        <label class="block text-sm font-bold text-slate-700">
+                            Luggage Description / உடைமை விவரம் <span class="text-tn-red">*</span>
+                        </label>
+                        <textarea name="description" required rows="3"
+                            class="w-full p-4 border border-slate-300 rounded-md font-medium input-focus resize-none"
+                            placeholder="Describe your lost item (color, size, contents, etc.)"></textarea>
+                        <p class="text-[11px] text-slate-500 font-medium italic">Please provide specific details to help
+                            with identification.</p>
+                    </div>
+
+                    <div class="pt-4">
+                        <button type="submit"
+                            class="w-full btn-gov-primary text-sm uppercase tracking-widest shadow-md">
+                            Submit Lost Report / அறிக்கையைச் சமர்ப்பிக்கவும்
+                        </button>
+                    </div>
+                </form>
             </div>
-            
-            <form action="{{ url_for('submit_lost') }}" method="POST" class="p-6 space-y-5">
-                <!-- Name -->
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Your Name</label>
-                    <input type="text" name="name" required
-                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-tn-red focus:outline-none input-focus transition-all"
-                        placeholder="Enter your full name">
-                </div>
-                
-                <!-- Phone -->
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Phone Number</label>
-                    <input type="tel" name="phone" required pattern="[0-9]{10}"
-                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-tn-red focus:outline-none input-focus transition-all mono"
-                        placeholder="10-digit mobile number">
-                </div>
-                
-                <!-- Route Selection -->
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Bus Route</label>
-                    <select name="route_id" id="route_select" required
-                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-tn-red focus:outline-none input-focus transition-all bg-white">
-                        <option value="">Select your route</option>
-                        {% for route in routes %}
-                        <option value="{{ route.id }}" data-stops="{{ route.stops | join(',') }}">{{ route.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <!-- Date -->
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Travel Date</label>
-                    <input type="date" name="date" required
-                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-tn-red focus:outline-none input-focus transition-all">
-                </div>
-                
-                <!-- Source & Destination -->
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Boarded At</label>
-                        <select name="source" id="source_select" required
-                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-tn-red focus:outline-none input-focus transition-all bg-white">
-                            <option value="">Select stop</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Alighted At</label>
-                        <select name="destination" id="dest_select" required
-                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-tn-red focus:outline-none input-focus transition-all bg-white">
-                            <option value="">Select stop</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <!-- Description -->
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Luggage Description</label>
-                    <textarea name="description" required rows="4"
-                        class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-tn-red focus:outline-none input-focus transition-all resize-none"
-                        placeholder="Describe your lost item in detail (color, size, brand, contents, any identifying marks)"></textarea>
-                    <p class="text-xs text-gray-500 mt-1">Be as specific as possible to help identify your item</p>
-                </div>
-                
-                <!-- Submit -->
-                <button type="submit" class="w-full btn-primary text-white font-semibold py-4 rounded-xl shadow-lg">
-                    Submit Lost Report
-                </button>
-            </form>
         </div>
-        
-        <!-- Sidebar -->
-        <div class="lg:col-span-2 space-y-6">
-            <!-- Info Card -->
-            <div class="card-glass rounded-2xl p-6 opacity-0 animate-fade-in animate-delay-2">
-                <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-tn-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+
+        <!-- Right: Information & Quick Links -->
+        <div class="lg:col-span-4 space-y-8">
+            <!-- Guidelines -->
+            <div class="card-professional p-6 border-l-4 border-tn-blue shadow-sm">
+                <h3 class="font-heading font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-tn-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    How It Works
+                    Guidelines / வழிகாட்டுதல்
                 </h3>
-                <ol class="text-sm text-gray-600 space-y-3">
-                    <li class="flex gap-3">
-                        <span class="w-6 h-6 rounded-full bg-tn-red/10 text-tn-red font-bold flex items-center justify-center flex-shrink-0 text-xs">1</span>
-                        <span>Submit your lost luggage report with route and description</span>
-                    </li>
-                    <li class="flex gap-3">
-                        <span class="w-6 h-6 rounded-full bg-tn-red/10 text-tn-red font-bold flex items-center justify-center flex-shrink-0 text-xs">2</span>
-                        <span>Luggage continues to the last stop of the route</span>
-                    </li>
-                    <li class="flex gap-3">
-                        <span class="w-6 h-6 rounded-full bg-tn-red/10 text-tn-red font-bold flex items-center justify-center flex-shrink-0 text-xs">3</span>
-                        <span>Depot staff collect and upload found items</span>
-                    </li>
-                    <li class="flex gap-3">
-                        <span class="w-6 h-6 rounded-full bg-tn-red/10 text-tn-red font-bold flex items-center justify-center flex-shrink-0 text-xs">4</span>
-                        <span>System matches & depot contacts you for pickup</span>
-                    </li>
-                </ol>
-            </div>
-            
-            <!-- Routes Info -->
-            <div class="card-glass rounded-2xl p-6 opacity-0 animate-fade-in animate-delay-3">
-                <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-tn-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                    </svg>
-                    Covered Routes
-                </h3>
-                <div class="space-y-3">
-                    {% for route in routes %}
-                    <div class="bg-gray-50 rounded-xl p-3">
-                        <p class="font-semibold text-gray-800 text-sm">{{ route.name }}</p>
-                        <p class="text-xs text-gray-500 mt-1">{{ route.stops | join(' → ') }}</p>
+                <div class="space-y-4">
+                    <div class="flex gap-4">
+                        <div
+                            class="h-6 w-6 rounded-full bg-tn-blue text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            1</div>
+                        <p class="text-sm text-slate-600 font-medium">Report your lost item immediately with exact
+                            travel details.</p>
                     </div>
-                    {% endfor %}
+                    <div class="flex gap-4">
+                        <div
+                            class="h-6 w-6 rounded-full bg-tn-blue text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            2</div>
+                        <p class="text-sm text-slate-600 font-medium">Depot officers will check the bus at the end of
+                            the shift.</p>
+                    </div>
+                    <div class="flex gap-4">
+                        <div
+                            class="h-6 w-6 rounded-full bg-tn-blue text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            3</div>
+                        <p class="text-sm text-slate-600 font-medium">If matched, you will be contacted for collection
+                            from the depot.</p>
+                    </div>
                 </div>
             </div>
-            
-            <!-- Depot Staff Link -->
-            <div class="card-glass rounded-2xl p-5 opacity-0 animate-fade-in animate-delay-3">
-                <p class="text-sm text-gray-600 mb-3">Are you depot staff?</p>
-                <a href="{{ url_for('depot_login_page') }}" class="block w-full btn-secondary text-white font-semibold py-3 rounded-xl text-center hover:shadow-lg transition-all">
-                    Depot Staff Login
+
+            <!-- Depot Login Quick Link -->
+            <div class="card-professional p-6 bg-slate-50 border-tn-blue/10">
+                <p class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-4">Staff Section</p>
+                <a href="{{ url_for('depot_login_page') }}"
+                    class="btn-gov-secondary text-xs uppercase tracking-widest w-full">
+                    Depot Access Portal
                 </a>
             </div>
         </div>
@@ -158,25 +162,26 @@
     const routeSelect = document.getElementById('route_select');
     const sourceSelect = document.getElementById('source_select');
     const destSelect = document.getElementById('dest_select');
-    
+
     function populateStops(stops) {
         const stopArray = stops ? stops.split(',') : [];
-        
-        sourceSelect.innerHTML = '<option value="">Select stop</option>';
-        destSelect.innerHTML = '<option value="">Select stop</option>';
-        
+
+        sourceSelect.innerHTML = '<option value="">Select stop / இடம்</option>';
+        destSelect.innerHTML = '<option value="">Select stop / இடம்</option>';
+
         stopArray.forEach(stop => {
-            sourceSelect.innerHTML += `<option value="${stop}">${stop}</option>`;
-            destSelect.innerHTML += `<option value="${stop}">${stop}</option>`;
+            const option = `<option value="${stop}">${stop}</option>`;
+            sourceSelect.innerHTML += option;
+            destSelect.innerHTML += option;
         });
     }
-    
-    routeSelect.addEventListener('change', function() {
+
+    routeSelect.addEventListener('change', function () {
         const selected = this.options[this.selectedIndex];
         const stops = selected.getAttribute('data-stops') || '';
         populateStops(stops);
     });
-    
+
     // Set max date to today
     const dateInput = document.querySelector('input[type="date"]');
     if (dateInput) {
