@@ -105,10 +105,6 @@ Access the portal at `http://127.0.0.1:5003`.
 
 ---
 
-## 🏆 Impact & Roadmap
+## 🏆 Impact
 - **Social Impact**: Reduces passenger anxiety and increases trust in public transport.
-- **Future Scope**:
-    - Aadhaar-based identity verification for item collection.
-    - Automated SMS/WhatsApp notifications via Twilio.
-    - Computer Vision for automatic item categorization from photos.
-    - Multi-language support (Tamil & English).
+
