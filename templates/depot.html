@@ -164,7 +164,12 @@
                             <div
                                 class="p-4 bg-slate-50 rounded-md border-l-4 border-tn-blue flex items-center justify-between gap-4">
                                 <div class="min-w-0">
-                                    <h4 class="text-sm font-bold text-slate-800">{{ lost.name }}</h4>
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span
+                                            class="text-[10px] font-bold text-tn-blue bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase tracking-tighter">ID:
+                                            {{ lost.id }}</span>
+                                        <h4 class="text-sm font-bold text-slate-800">{{ lost.name }}</h4>
+                                    </div>
                                     <p class="text-xs text-tn-blue font-bold tracking-widest mt-0.5">{{ lost.phone }}
                                     </p>
                                     <p class="text-[10px] text-slate-500 mt-2 line-clamp-2">Lost: "{{ lost.description
