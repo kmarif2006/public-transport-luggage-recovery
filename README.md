@@ -1,110 +1,105 @@
 # AI-Assisted Passenger Belongings Recovery System
-### 🚍 Smart Lost & Found Management for State Transport Services
+### 🚍 Intelligent Lost & Found Management for State Transport Services (TNSTC MVP)
 
-The **AI-Assisted Passenger Belongings Recovery System** is a modern, digital solution designed to streamline the recovery of lost items for passengers traveling on government buses (e.g., TNSTC). By replacing manual registers with a centralized, AI-powered platform, the system ensures transparency, speed, and accuracy in reunited passengers with their belongings.
+The **AI-Assisted Passenger Belongings Recovery System** is a full-stack digital platform designed to automate and optimize the recovery of lost items in public transport. By leveraging **Sentence-BERT** for semantic matching and a custom **Luggage Path Logic** algorithm, the system bridge the gap between passengers and depot administrators, ensuring that lost items are tracked and returned with high efficiency.
 
 ---
 
-## 🚀 Key Features
+## 📑 Project Abstract
+In traditional transport systems, lost items are recorded in manual registers, leading to fragmented information and low recovery rates. This project introduces a centralized MongoDB-backed Flask application that:
+1.  Allows passengers to report lost items with precise travel metadata.
+2.  Provides depot staff with a secure dashboard to log found items (with image support).
+3.  Automatically suggests matches using AI-driven similarity scores and route-based directional logic.
 
-### 👤 Passenger Portal
-- **Lost Item Reporting**: Submit detailed reports including travel date, route, boarding/alighting points, and item description.
-- **Reference IDs**: Unique IDs for every report to facilitate easy tracking.
-- **Status Updates**: Real-time feedback on potential matches found by depot staff.
+---
 
-### 🏢 Depot Management Dashboard
-- **Secure Authentication**: Role-based access for different bus depots (e.g., Chennai, Coimbatore, Madurai).
-- **Found Item Logging**: Record found items with photos, route information, and specific notes.
-- **Proactive Matching**: Instant notification of potential matches within the passenger database.
+## ✅ Implementation Status (What's been implemented)
 
-### 🤖 Intelligent AI Matching
-- **Semantic Similarity**: Uses **Sentence-BERT (all-MiniLM-L6-v2)** to compare passenger descriptions with depot notes, identifying matches even with different wording (e.g., "blue bag" matches "azure rucksack").
-- **Travel Logic**: A custom algorithm (see *Luggage Path Logic*) that correlates bus routes and stops to predict where an item is most likely to be found.
+### **Backend & Logic**
+- [x] **Flask Application Core**: Robust routing and session management.
+- [x] **MongoDB Integration**: Persistent storage for lost reports, found reports, and depot credentials.
+- [x] **Luggage Path Logic**: A directional algorithm that filters matches based on the bus's travel sequence (Stop A → Stop B → Stop C).
+- [x] **AI Matching Engine**: Integrated `SentenceTransformer` (`all-MiniLM-L6-v2`) for semantic text similarity.
+- [x] **Authentication**: Secure depot-specific login system.
+
+### **Frontend & UI**
+- [x] **Passenger Portal**: Dynamic forms with real-time stop suggestions based on selected routes.
+- [x] **Depot Dashboard**: Comprehensive view of submitted found reports and auto-suggested passenger matches.
+- [x] **Responsive Design**: Modern Glassmorphism UI using CSS3 and Vanilla JS.
+- [x] **File Uploads**: Image processing for found items using `werkzeug`.
+
+### **Data & Setup**
+- [x] **Database Seeding**: Python script (`seed_db.py`) to automatically populate the database with real-world routes (Chennai, Coimbatore, Madurai, etc.).
+- [x] **Environment Configuration**: Secure `.env` handling for API keys and database URIs.
 
 ---
 
 ## 🛠️ Technical Stack
 
-- **Backend**: Python 3.x, Flask (Web Framework)
-- **Database**: MongoDB (Scalable NoSQL storage)
-- **AI/ML**: `sentence-transformers` (Sentence-BERT), `scikit-learn` (Cosine Similarity)
-- **Frontend**: Semantic HTML5, CSS3 (Modern Glassmorphism UI), JavaScript (Dynamic Form Handling)
-- **Environment**: `python-dotenv` for secure configuration.
+-   **Frontend**: HTML5, CSS3, JavaScript (ES6+), FontAwesome Icons.
+-   **Backend**: Python 3.11+, Flask.
+-   **Database**: MongoDB (NoSQL) via `pymongo`.
+-   **AI/ML**: `sentence-transformers`, `scikit-learn` (Cosine Similarity).
+-   **Security**: `python-dotenv`, `werkzeug.security`.
 
 ---
 
-## 🧠 Implementation Details: The Matching Logic
+## 🧠 Core Algorithm: AI Matching Logic
 
 ### 1. Luggage Path Logic
-Items lost on a bus typically travel *forward* from where the passenger alighted. 
-- **Rule**: If a passenger travels from **Stop A** to **Stop C**, and the bus continues to **Stop D** and **Stop E**, the item can only be found at depots located at **Stop D** or **Stop E**.
-- The system automatically filters out irrelevant reports based on this directional travel logic.
+Items lost on a bus typically stay on the bus until it reaches a depot or the end of its route.
+-   **Example**: If a passenger boards at **Chennai** and gets down at **Villupuram**, the item is logicaly found at depots *after* Villupuram (e.g., **Salem**, **Erode**, or **Coimbatore**).
+-   The system uses the `ROUTES` stop sequence to validate these "downstream" depots.
 
-### 2. Semantic Similarity
-Generic text matching (like keyword search) often fails. Our system converts descriptions into high-dimensional vectors (embeddings):
-- **Model**: `all-MiniLM-L6-v2`
-- **Metric**: Cosine Similarity
-- **Threshold**: Configured to 0.25+ for "Potential Match" alerts, ensuring high recall while maintaining relevance.
-
----
-
-## 📂 Project Structure
-
-```text
-Final_Project/
-├── app.py              # Main Flask application logic
-├── seed_db.py          # Script to initialize MongoDB with routes and depots
-├── requirements.txt    # Project dependencies
-├── .env                # Environment variables (Mongo URI, Secret Key)
-├── static/
-│   ├── uploads/        # Storage for found item images
-│   └── css/js/         # UI assets
-└── templates/
-    ├── base.html       # Shared layout template
-    ├── index.html      # Passenger reporting page
-    ├── depot.html      # Depot dashboard & matching view
-    └── depot_login.html # Staff authentication
-```
+### 2. Semantic Description Matching
+Traditional keyword search fails (e.g., "blue bag" vs "navy rucksack"). 
+-   The system converts descriptions into **384-dimensional embeddings**.
+-   **Cosine Similarity** compares the `Lost Description` vs `Depot Notes`.
+-   **Threshold**: Set at `0.25` to balance high sensitivity with relevance.
 
 ---
 
-## ▶️ Setup & Installation
+## ▶️ How to Run the Project
 
 ### 1. Prerequisites
-- Python 3.8+
-- MongoDB (Local or Atlas)
+- **Python 3.11+** installed.
+- **MongoDB** instance (Local or Atlas) ready.
 
-### 2. Environment Setup
-Create a `.env` file in the root directory:
+### 2. Setup Environment
+Clone/copy the project and create a `.env` file in the root:
 ```env
-MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/tn_bus_lost_found
-SECRET_KEY=your_secure_random_key_here
+MONGO_URI=your_mongodb_connection_string
+SECRET_KEY=your_random_secret_key
 ```
 
 ### 3. Installation
 ```bash
-# Create and activate virtual environment
+# Windows
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+venv\Scripts\activate
 
-# Install dependencies
+# Install requirements
 pip install -r requirements.txt
 ```
 
-### 4. Database Initialization
-Run the seed script to populate routes and depot credentials:
+### 4. Initialize Database
+Before running the app, seed the depot authentication and route data:
 ```bash
 python seed_db.py
 ```
 
-### 5. Run the Application
+### 5. Start Application
 ```bash
 python app.py
 ```
-Access the portal at `http://127.0.0.1:5003`.
+Visit `http://127.0.0.1:5003` in your browser.
 
 ---
 
-## 🏆 Impact
+## 🏆 Impact & Roadmap
 - **Social Impact**: Reduces passenger anxiety and increases trust in public transport.
-
+- **Future Scope**:
+    - Aadhaar-based identity verification for item collection.
+    - Automated SMS/WhatsApp notifications via Twilio.
+    - Computer Vision for automatic item categorization from photos.
+    - Multi-language support (Tamil & English).
