@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Report Lost Item — TN Bus Lost & Found</title>
+  <meta name="description" content="Report a lost item on Tamil Nadu public transport buses. Select your boarding and drop depots and submit your lost item details.">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Tamil:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #1e3a5f;
+      --primary-light: #2563eb;
+      --accent: #f59e0b;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --bg: #f1f5f9;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 14px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.08);
+      --shadow-lg: 0 16px 48px rgba(0,0,0,0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Navbar ── */
+    nav {
+      background: var(--primary);
+      padding: 0.875rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.2);
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      color: white;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    .nav-brand i { color: var(--accent); font-size: 1.3rem; }
+
+    .nav-links { display: flex; align-items: center; gap: 1.5rem; }
+
+    .nav-links a {
+      color: rgba(255,255,255,0.8);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover, .nav-links a.active { color: white; }
+
+    .nav-notif-btn {
+      position: relative;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.8);
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 0.3rem;
+      transition: color 0.2s;
+    }
+    .nav-notif-btn:hover { color: white; }
+
+    .notif-badge {
+      position: absolute;
+      top: -4px; right: -6px;
+      background: var(--danger);
+      color: white;
+      font-size: 0.6rem;
+      font-weight: 700;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      display: none;
+    }
+
+    .logout-btn {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      padding: 0.45rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s;
+    }
+    .logout-btn:hover { background: rgba(255,255,255,0.22); }
+
+    /* ── Page Layout ── */
+    .page-wrapper {
+      max-width: 860px;
+      margin: 2.5rem auto;
+      padding: 0 1.5rem 4rem;
+    }
+
+    /* ── Header ── */
+    .page-header {
+      text-align: center;
+      margin-bottom: 2rem;
+      animation: fadeInDown 0.5s ease;
+    }
+
+    .page-header .badge-gov {
+      display: inline-block;
+      background: linear-gradient(135deg, #1e3a5f, #2563eb);
+      color: white;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      padding: 0.35rem 1rem;
+      border-radius: 50px;
+      margin-bottom: 1rem;
+    }
+
+    .page-header h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .page-header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .tamil-sub {
+      font-family: 'Noto Sans Tamil', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    /* ── Progress Steps ── */
+    .steps {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 2rem;
+    }
+
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .step-circle {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--border);
+      color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      transition: all 0.3s;
+    }
+
+    .step.active .step-circle {
+      background: var(--primary-light);
+      color: white;
+      box-shadow: 0 0 0 4px rgba(37,99,235,0.2);
+    }
+
+    .step.done .step-circle {
+      background: var(--success);
+      color: white;
+    }
+
+    .step-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .step.active .step-label, .step.done .step-label {
+      color: var(--text);
+    }
+
+    .step-line {
+      flex: 1;
+      height: 2px;
+      background: var(--border);
+      margin: 0 0.5rem;
+      margin-bottom: 1.4rem;
+      transition: background 0.3s;
+      max-width: 80px;
+    }
+
+    .step-line.done { background: var(--success); }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      animation: slideUp 0.4s ease;
+    }
+
+    .card-header {
+      background: linear-gradient(135deg, var(--primary), #2563eb);
+      color: white;
+      padding: 1.25rem 1.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .card-header h2 { font-size: 1.05rem; font-weight: 600; }
+    .card-header i { font-size: 1.2rem; opacity: 0.9; }
+
+    .card-body { padding: 1.75rem; }
+
+    /* ── Route Selection ── */
+    .route-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .route-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      color: var(--primary-light);
+      font-size: 1.5rem;
+      padding-top: 1.5rem;
+    }
+
+    .route-arrow small { font-size: 0.6rem; color: var(--text-muted); font-weight: 600; }
+
+    .form-group { margin-bottom: 1.25rem; }
+
+    .form-group label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.45rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .form-group label i { color: var(--primary-light); font-size: 0.9rem; }
+
+    .form-control {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      color: var(--text);
+      background: white;
+      transition: border-color 0.25s, box-shadow 0.25s;
+      outline: none;
+    }
+
+    .form-control:focus {
+      border-color: var(--primary-light);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+    }
+
+    .search-wrapper { position: relative; }
+
+    .search-wrapper .search-icon {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      pointer-events: none;
+    }
+
+    .search-wrapper input { padding-left: 2.2rem; }
+
+    select.form-control {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%2364748b'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.9rem center;
+      padding-right: 2.2rem;
+    }
+
+    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+
+    textarea.form-control { resize: vertical; min-height: 90px; }
+
+    .char-counter {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: right;
+      margin-top: 0.25rem;
+    }
+
+    .required { color: var(--danger); }
+
+    .optional-badge {
+      background: var(--bg);
+      color: var(--text-muted);
+      font-size: 0.65rem;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    /* ── Photo Upload ── */
+    .photo-upload-area {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      background: #fafbfc;
+      position: relative;
+    }
+
+    .photo-upload-area:hover {
+      border-color: var(--primary-light);
+      background: #eff6ff;
+    }
+
+    .photo-upload-area.has-file {
+      border-color: var(--success);
+      background: #f0fdf4;
+    }
+
+    .photo-upload-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .photo-upload-icon { font-size: 2rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+    .photo-upload-text { font-size: 0.85rem; color: var(--text-muted); }
+    .photo-preview { max-width: 100%; max-height: 180px; border-radius: 8px; margin-top: 0.75rem; display: none; }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), #2563eb);
+      color: white;
+      border: none;
+      padding: 0.85rem 2rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.25s;
+      margin-top: 0.5rem;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(37,99,235,0.35);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* ── Alert ── */
+    .alert {
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+      animation: slideUp 0.3s ease;
+    }
+
+    .alert.error { background: #fef2f2; color: #991b1b; border-left: 4px solid var(--danger); }
+    .alert.success { background: #f0fdf4; color: #166534; border-left: 4px solid var(--success); }
+    .alert.info { background: #eff6ff; color: #1e40af; border-left: 4px solid var(--primary-light); }
+
+    /* ── Success Screen ── */
+    .success-screen {
+      text-align: center;
+      padding: 3rem 2rem;
+      display: none;
+    }
+
+    .success-icon {
+      width: 80px; height: 80px;
+      background: linear-gradient(135deg, #16a34a, #22c55e);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem;
+      color: white;
+      margin: 0 auto 1.5rem;
+      animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .success-screen h2 { font-size: 1.5rem; color: var(--text); margin-bottom: 0.5rem; }
+    .success-screen p { color: var(--text-muted); margin-bottom: 1.5rem; }
+
+    .btn-outline {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border: 2px solid var(--primary-light);
+      color: var(--primary-light);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: inherit;
+      background: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.25s;
+    }
+
+    .btn-outline:hover { background: var(--primary-light); color: white; }
+
+    /* ── Depot selector tooltip ── */
+    .depot-info-chip {
+      display: none;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      color: #1e40af;
+      margin-top: 0.4rem;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .depot-info-chip.visible { display: flex; }
+
+    /* ── Animations ── */
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes popIn {
+      from { transform: scale(0); }
+      to { transform: scale(1); }
+    }
+
+    @media (max-width: 640px) {
+      .route-grid { grid-template-columns: 1fr; }
+      .route-arrow { display: none; }
+      .form-grid-2 { grid-template-columns: 1fr; }
+      .page-header h1 { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Navbar -->
+  <nav>
+    <a href="/" class="nav-brand">
+      <i class="fas fa-bus-alt"></i>
+      <span>TN Bus Lost & Found</span>
+    </a>
+    <div class="nav-links">
+      <a href="/report.html" class="active"><i class="fas fa-plus-circle"></i> Report Lost</a>
+      <a href="/dashboard.html"><i class="fas fa-list-alt"></i> My Reports</a>
+      <button class="nav-notif-btn" onclick="window.location.href='/dashboard.html'" title="Notifications">
+        <i class="fas fa-bell"></i>
+        <span class="notif-badge" id="notif-badge">0</span>
+      </button>
+      <button class="logout-btn" id="logout-btn">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </button>
+    </div>
+  </nav>
+
+  <div class="page-wrapper">
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="badge-gov">🏛 TNSTC / MTC / SETC — OFFICIAL PORTAL</div>
+      <h1>Report a Lost Item</h1>
+      <p>Fill in your travel details and item description. Our AI engine will match it automatically.</p>
+      <p class="tamil-sub">இழந்த பொருளை புகாரளிக்கவும் — உங்கள் பயண விவரங்களை உள்ளிடவும்</p>
+    </div>
+
+    <!-- Progress Steps -->
+    <div class="steps">
+      <div class="step active" id="step-1">
+        <div class="step-circle">1</div>
+        <div class="step-label">Route</div>
+      </div>
+      <div class="step-line" id="line-1"></div>
+      <div class="step active" id="step-2">
+        <div class="step-circle">2</div>
+        <div class="step-label">Item Details</div>
+      </div>
+      <div class="step-line" id="line-2"></div>
+      <div class="step" id="step-3">
+        <div class="step-circle">3</div>
+        <div class="step-label">Submit</div>
+      </div>
+    </div>
+
+    <!-- Alert Area -->
+    <div id="alert-area"></div>
+
+    <!-- Main Card -->
+    <div class="card" id="form-card">
+
+      <div class="card-header">
+        <i class="fas fa-clipboard-list"></i>
+        <h2>Lost Item Report — Enterprise Filing System</h2>
+      </div>
+
+      <div class="card-body">
+        <form id="report-form" novalidate>
+
+          <!-- Section 1: Route -->
+          <div class="route-grid">
+            <!-- Boarding Depot -->
+            <div>
+              <div class="form-group">
+                <label for="source-search">
+                  <i class="fas fa-map-marker-alt" style="color:#22c55e;"></i>
+                  Boarding Depot <span class="required">*</span>
+                </label>
+                <div class="search-wrapper">
+                  <i class="fas fa-search search-icon"></i>
+                  <input type="text" id="source-search" class="form-control" placeholder="Search boarding depot..." autocomplete="off">
+                </div>
+                <select id="source-depot-select" class="form-control" style="margin-top:0.5rem;" required>
+                  <option value="">🟢 Select Boarding Point</option>
+                </select>
+                <div class="depot-info-chip" id="source-chip">
+                  <i class="fas fa-bus"></i>
+                  <span id="source-chip-text"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Arrow -->
+            <div class="route-arrow">
+              <i class="fas fa-arrow-right"></i>
+              <small>TO</small>
+            </div>
+
+            <!-- Drop Depot -->
+            <div>
+              <div class="form-group">
+                <label for="dest-search">
+                  <i class="fas fa-flag-checkered" style="color:#ef4444;"></i>
+                  Drop Depot <span class="required">*</span>
+                </label>
+                <div class="search-wrapper">
+                  <i class="fas fa-search search-icon"></i>
+                  <input type="text" id="dest-search" class="form-control" placeholder="Search drop depot..." autocomplete="off">
+                </div>
+                <select id="dest-depot-select" class="form-control" style="margin-top:0.5rem;" required>
+                  <option value="">🏁 Select Drop Point</option>
+                </select>
+                <div class="depot-info-chip" id="dest-chip">
+                  <i class="fas fa-bus"></i>
+                  <span id="dest-chip-text"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Date + Bus Number -->
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label for="date-lost">
+                <i class="fas fa-calendar-alt"></i>
+                Date of Travel <span class="required">*</span>
+              </label>
+              <input type="date" id="date-lost" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label for="bus-number">
+                <i class="fas fa-bus"></i>
+                Bus Number <span class="optional-badge">Optional</span>
+              </label>
+              <input type="text" id="bus-number" class="form-control" placeholder="e.g. TN01 AB 1234">
+            </div>
+          </div>
+
+          <hr style="border:none; border-top:1px solid var(--border); margin: 0.5rem 0 1.25rem;">
+
+          <!-- Item Details -->
+          <div class="form-group">
+            <label for="item-name">
+              <i class="fas fa-suitcase"></i>
+              What did you lose? <span class="required">*</span>
+            </label>
+            <input type="text" id="item-name" class="form-control" placeholder="e.g. Black backpack, Red trolley bag, Mobile phone" required>
+          </div>
+
+          <div class="form-group">
+            <label for="item-description">
+              <i class="fas fa-align-left"></i>
+              Describe it in detail <span class="required">*</span>
+            </label>
+            <textarea id="item-description" class="form-control" rows="4" maxlength="400"
+              placeholder="Colour, brand, size, special marks, contents... The more specific you are, the better the AI can match. Minimum 20 characters." required></textarea>
+            <div class="char-counter"><span id="char-count">0</span>/400 characters</div>
+          </div>
+
+          <!-- Contact + Photo -->
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label for="contact-phone">
+                <i class="fas fa-phone"></i>
+                Your Mobile Number <span class="required">*</span>
+              </label>
+              <input type="tel" id="contact-phone" class="form-control"
+                placeholder="10-digit number" pattern="[0-9]{10}" required>
+            </div>
+            <div class="form-group">
+              <label>
+                <i class="fas fa-camera"></i>
+                Photo of Lost Item <span class="optional-badge">Optional but helpful</span>
+              </label>
+              <div class="photo-upload-area" id="photo-drop-area">
+                <input type="file" id="photo-upload" accept="image/*">
+                <div id="upload-placeholder">
+                  <div class="photo-upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                  <div class="photo-upload-text">Click or drag to upload a photo</div>
+                  <div class="photo-upload-text" style="font-size:0.72rem; margin-top:0.25rem; color:#94a3b8;">PNG, JPG, WEBP up to 10MB</div>
+                </div>
+                <img id="photo-preview" class="photo-preview" alt="Preview">
+              </div>
+            </div>
+          </div>
+
+          <!-- Submit -->
+          <button type="submit" class="btn-primary" id="submit-btn">
+            <i class="fas fa-paper-plane"></i>
+            Submit Lost Item Report
+          </button>
+
+        </form>
+
+        <!-- Success Screen (hidden initially) -->
+        <div class="success-screen" id="success-screen">
+          <div class="success-icon"><i class="fas fa-check"></i></div>
+          <h2>Report Submitted Successfully!</h2>
+          <p>Your report has been filed and broadcasted to all relevant depot managers.<br>You'll receive a notification when a match is found.</p>
+          <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+            <a href="/dashboard.html" class="btn-outline">
+              <i class="fas fa-list-alt"></i> View My Reports
+            </a>
+            <button class="btn-outline" onclick="resetForm()">
+              <i class="fas fa-plus"></i> Report Another Item
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /page-wrapper -->
+
+  <script>
+    const API_BASE = '/api';
+    const token = localStorage.getItem('jwt_token');
+
+    // ── Auth Guard ──────────────────────────────────────────────────────────
+    if (!token) { window.location.href = '/login.html'; }
+
+    // ── Depot Data ──────────────────────────────────────────────────────────
+    let allDepots = [];
+
+    async function loadDepots() {
+      try {
+        const res = await fetch(`${API_BASE}/depots`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        allDepots = data.depots || [];
+        populateSelect('source-depot-select', allDepots);
+        populateSelect('dest-depot-select', allDepots);
+      } catch (e) {
+        showAlert('Failed to load depot list. Please refresh.', 'error');
+      }
+    }
+
+    function populateSelect(selectId, depots) {
+      const sel = document.getElementById(selectId);
+      const firstOpt = sel.options[0];
+      sel.innerHTML = '';
+      sel.appendChild(firstOpt);
+      depots.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.depot_id;
+        opt.dataset.name = d.name;
+        opt.dataset.city = d.city;
+        opt.dataset.type = d.type;
+        opt.textContent = `${d.name} — ${d.city} (${d.type})`;
+        sel.appendChild(opt);
+      });
+    }
+
+    // ── Live Search / Filter for Selects ────────────────────────────────────
+    function setupSearch(inputId, selectId, chipId, chipTextId) {
+      const input = document.getElementById(inputId);
+      const select = document.getElementById(selectId);
+      const chip = document.getElementById(chipId);
+      const chipText = document.getElementById(chipTextId);
+
+      input.addEventListener('input', () => {
+        const q = input.value.toLowerCase().trim();
+        const filtered = q
+          ? allDepots.filter(d =>
+              (d.name + ' ' + d.city + ' ' + d.type + ' ' + d.district).toLowerCase().includes(q)
+            )
+          : allDepots;
+        populateSelect(selectId, filtered);
+      });
+
+      select.addEventListener('change', () => {
+        const opt = select.options[select.selectedIndex];
+        if (select.value && opt.dataset.name) {
+          chip.classList.add('visible');
+          chipText.textContent = `${opt.dataset.name} · ${opt.dataset.city} · ${opt.dataset.type}`;
+          input.value = opt.dataset.name;
+        } else {
+          chip.classList.remove('visible');
+        }
+      });
+    }
+
+    setupSearch('source-search', 'source-depot-select', 'source-chip', 'source-chip-text');
+    setupSearch('dest-search', 'dest-depot-select', 'dest-chip', 'dest-chip-text');
+
+    // ── Date Default ─────────────────────────────────────────────────────────
+    document.getElementById('date-lost').valueAsDate = new Date();
+
+    // ── Char Counter ────────────────────────────────────────────────────────
+    const descTA = document.getElementById('item-description');
+    descTA.addEventListener('input', () => {
+      document.getElementById('char-count').textContent = descTA.value.length;
+    });
+
+    // ── Photo Preview ────────────────────────────────────────────────────────
+    const photoInput = document.getElementById('photo-upload');
+    const photoPreview = document.getElementById('photo-preview');
+    const uploadPlaceholder = document.getElementById('upload-placeholder');
+    const dropArea = document.getElementById('photo-drop-area');
+
+    photoInput.addEventListener('change', () => {
+      const file = photoInput.files[0];
+      if (file) {
+        dropArea.classList.add('has-file');
+        const reader = new FileReader();
+        reader.onload = e => {
+          photoPreview.src = e.target.result;
+          photoPreview.style.display = 'block';
+          uploadPlaceholder.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // ── Logout ───────────────────────────────────────────────────────────────
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('user_role');
+      window.location.href = '/login.html';
+    });
+
+    // ── Notifications Badge ──────────────────────────────────────────────────
+    async function loadNotifCount() {
+      try {
+        const res = await fetch(`${API_BASE}/notifications`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const badge = document.getElementById('notif-badge');
+        if (data.unread_count > 0) {
+          badge.style.display = 'flex';
+          badge.textContent = data.unread_count > 9 ? '9+' : data.unread_count;
+        }
+      } catch (e) { /* ignore */ }
+    }
+    loadNotifCount();
+
+    // ── Form Submit ──────────────────────────────────────────────────────────
+    document.getElementById('report-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const sourceDepot = document.getElementById('source-depot-select').value;
+      const destDepot = document.getElementById('dest-depot-select').value;
+      const dateLost = document.getElementById('date-lost').value;
+      const itemName = document.getElementById('item-name').value.trim();
+      const itemDesc = document.getElementById('item-description').value.trim();
+      const contactPhone = document.getElementById('contact-phone').value.trim();
+      const busNumber = document.getElementById('bus-number').value.trim();
+
+      // Validation
+      if (!sourceDepot) return showAlert('Please select your Boarding Depot.', 'error');
+      if (!destDepot) return showAlert('Please select your Drop Depot.', 'error');
+      if (sourceDepot === destDepot) return showAlert('Boarding and Drop depots cannot be the same.', 'error');
+      if (!dateLost) return showAlert('Please select your travel date.', 'error');
+      if (!itemName) return showAlert('Please enter the name of the lost item.', 'error');
+      if (itemDesc.length < 15) return showAlert('Please provide a more detailed description (at least 15 characters) for better AI matching.', 'error');
+      if (!contactPhone || !/^[0-9]{10}$/.test(contactPhone)) return showAlert('Please enter a valid 10-digit mobile number.', 'error');
+
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting Report...';
+
+      const formData = new FormData();
+      formData.append('source_depot_id', sourceDepot);
+      formData.append('destination_depot_id', destDepot);
+      formData.append('route_depots', JSON.stringify([sourceDepot, destDepot]));
+      formData.append('date_lost', dateLost);
+      formData.append('item_name', itemName);
+      formData.append('item_description', itemDesc);
+      formData.append('contact_phone', contactPhone);
+      formData.append('bus_number', busNumber);
+
+      const photoFile = document.getElementById('photo-upload').files[0];
+      if (photoFile) formData.append('photo', photoFile);
+
+      try {
+        const res = await fetch(`${API_BASE}/report-luggage`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          document.getElementById('report-form').style.display = 'none';
+          document.getElementById('success-screen').style.display = 'block';
+          document.getElementById('step-3').classList.add('done');
+          document.getElementById('line-2').classList.add('done');
+          if (data.matches && data.matches.length > 0) {
+            showAlert(`🎉 ${data.matches.length} potential AI match(es) were found immediately! Check your dashboard.`, 'success');
+          }
+        } else {
+          showAlert(data.message || 'Submission failed. Please try again.', 'error');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Lost Item Report';
+        }
+      } catch (err) {
+        showAlert('Network error. Please check your connection.', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Lost Item Report';
+      }
+    });
+
+    function resetForm() {
+      document.getElementById('report-form').reset();
+      document.getElementById('report-form').style.display = 'block';
+      document.getElementById('success-screen').style.display = 'none';
+      document.getElementById('photo-preview').style.display = 'none';
+      document.getElementById('upload-placeholder').style.display = 'block';
+      document.getElementById('photo-drop-area').classList.remove('has-file');
+      document.getElementById('char-count').textContent = '0';
+      document.getElementById('source-chip').classList.remove('visible');
+      document.getElementById('dest-chip').classList.remove('visible');
+      document.getElementById('step-3').classList.remove('done');
+      document.getElementById('line-2').classList.remove('done');
+      document.getElementById('date-lost').valueAsDate = new Date();
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Lost Item Report';
+    }
+
+    function showAlert(msg, type) {
+      const area = document.getElementById('alert-area');
+      area.innerHTML = `<div class="alert ${type}"><i class="fas fa-${type === 'error' ? 'exclamation-circle' : type === 'success' ? 'check-circle' : 'info-circle'}"></i><span>${msg}</span></div>`;
+      setTimeout(() => area.innerHTML = '', 7000);
+    }
+
+    // ── Boot ─────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', loadDepots);
+  </script>
+
+</body>
+</html>

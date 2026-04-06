@@ -7,7 +7,12 @@ from flask import Blueprint, jsonify, request, current_app
 from werkzeug.utils import secure_filename
 
 from ..auth.jwt_handler import jwt_required
-from ..extensions import mongo, socketio
+from ..extensions import mongo
+try:
+    from ..extensions import socketio
+except ImportError:
+    socketio = None
+    print("⚠️ Socket.IO not available - running without real-time notifications")
 from ..semantic_matcher import matcher
 from ..utils import report_to_dict
 
@@ -108,7 +113,13 @@ def report_luggage():
     # Real-time notification to managers along the route
     serialized = report_to_dict(report)
     for d_id in search_depots:
-        socketio.emit("new_lost_report", {"report": serialized}, room=f"depot_{d_id}")
+        if socketio is not None:
+            try:
+                socketio.emit("new_lost_report", {"report": serialized}, room=f"depot_{d_id}")
+            except Exception as e:
+                print(f"⚠️ Socket.IO emit failed: {e}")
+        else:
+            print("⚠️ Socket.IO not available - skipping real-time notification")
 
     return jsonify({
         "message": "Report submitted",

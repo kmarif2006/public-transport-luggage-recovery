@@ -27,7 +27,7 @@ function redirectIfLoggedIn() {
   const token = getToken();
   if (token) {
     const role = localStorage.getItem("user_role");
-    window.location.href = role === "manager" ? "/manager_dashboard.html" : "/map.html";
+    window.location.href = role === "manager" ? "/manager_dashboard.html" : "/report.html";
   }
 }
 
@@ -55,7 +55,7 @@ async function handleOAuthCallback(provider, code) {
       return;
     }
     setToken(data.token, data.user.role);
-    window.location.href = data.user.role === "manager" ? "/manager_dashboard.html" : "/map.html";
+    window.location.href = data.user.role === "manager" ? "/manager_dashboard.html" : "/report.html";
   } catch (err) {
     console.error("[AUTH] OAuth error:", err);
     showAlert("login-alert", "Network error during OAuth login", "error");
@@ -85,7 +85,7 @@ async function handleLogin(e) {
       return;
     }
     setToken(data.token, data.user.role);
-    window.location.href = data.user.role === "manager" ? "/manager_dashboard.html" : "/map.html";
+    window.location.href = data.user.role === "manager" ? "/manager_dashboard.html" : "/report.html";
   } catch (err) {
     console.error("[AUTH] Login error:", err);
     showAlert("login-alert", "Network error during login. Please try again.", "error");
@@ -126,7 +126,7 @@ async function handleSignup(e) {
       return;
     }
     setToken(data.token, data.user.role);
-    window.location.href = data.user.role === "manager" ? "/manager_dashboard.html" : "/map.html";
+    window.location.href = data.user.role === "manager" ? "/manager_dashboard.html" : "/report.html";
   } catch (err) {
     console.error("[AUTH] Signup error:", err);
     showAlert("signup-alert", "Network error during signup. Please try again.", "error");

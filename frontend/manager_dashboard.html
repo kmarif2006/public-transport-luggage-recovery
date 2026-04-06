@@ -4,202 +4,765 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manager Dashboard - TN Bus Lost Luggage</title>
-  <!-- Google Fonts -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@400;500&family=Noto+Sans+Tamil:wght@400;700&display=swap"
-    rel="stylesheet">
-  <!-- Font Awesome -->
+  <title>Manager Dashboard — TN Bus Lost & Found</title>
+  <meta name="description" content="Official depot manager portal for Tamil Nadu public transport lost luggage management.">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Tamil:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/dashboard.css">
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
-    #manager-depot-map {
-      height: 250px;
-      width: 100%;
-      border-radius: var(--radius-md);
+    :root {
+      --primary: #7A0C0C;
+      --primary-light: #B91C1C;
+      --accent: #f59e0b;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --info: #2563eb;
+      --bg: #f8f7f7;
+      --card-bg: #ffffff;
+      --text: #1a1a1a;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --radius: 14px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Navbar ── */
+    nav {
+      background: var(--primary);
+      padding: 0.875rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.25);
+    }
+    .nav-brand { display: flex; align-items: center; gap: 0.6rem; color: white; text-decoration: none; font-weight: 700; font-size: 1.1rem; }
+    .nav-brand i { color: var(--accent); font-size: 1.3rem; }
+    .nav-right { display: flex; align-items: center; gap: 1.25rem; }
+    .depot-tag {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 0.4rem 0.9rem; border-radius: 8px;
+      font-size: 0.82rem; font-weight: 600;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .depot-tag i { color: var(--accent); }
+    .logout-btn { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 0.45rem 1rem; border-radius: 8px; font-size: 0.85rem; cursor: pointer; font-family: inherit; transition: background 0.2s; }
+    .logout-btn:hover { background: rgba(255,255,255,0.22); }
+
+    /* ── Page Layout ── */
+    .page-container { max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+
+    /* ── Page Header ── */
+    .page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap; animation: fadeIn 0.5s ease; }
+    .page-header h1 { font-size: 1.75rem; font-weight: 800; color: var(--primary); margin-bottom: 0.2rem; }
+    .page-header p { color: var(--text-muted); font-size: 0.9rem; }
+    .tamil-text { font-family: 'Noto Sans Tamil', sans-serif; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.2rem; }
+    .btn-refresh { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--bg); border: 1px solid var(--border); color: var(--text-muted); padding: 0.65rem 1.2rem; border-radius: 10px; font-size: 0.875rem; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+    .btn-refresh:hover { background: white; border-color: var(--primary); color: var(--primary); }
+
+    /* ── Alert ── */
+    #manager-alert { margin-bottom: 1rem; }
+    .alert { border-radius: 10px; padding: 1rem 1.25rem; font-size: 0.875rem; display: flex; align-items: flex-start; gap: 0.75rem; animation: slideUp 0.3s ease; }
+    .alert.error { background: #fef2f2; color: #991b1b; border-left: 4px solid var(--danger); }
+    .alert.success { background: #f0fdf4; color: #166534; border-left: 4px solid var(--success); }
+    .alert.info { background: #eff6ff; color: #1e40af; border-left: 4px solid var(--info); }
+
+    /* ── Stats ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 2rem; animation: slideUp 0.4s ease; }
+    .stat-card { background: white; border-radius: var(--radius); padding: 1.25rem 1.5rem; box-shadow: var(--shadow); display: flex; align-items: center; gap: 1rem; border-left: 4px solid var(--border); }
+    .stat-card.incoming { border-color: var(--accent); }
+    .stat-card.found { border-color: var(--success); }
+    .stat-card.resolved { border-color: var(--info); }
+    .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; }
+    .stat-icon.pending { background: #fef3c7; color: var(--accent); }
+    .stat-icon.found-ic { background: #dcfce7; color: var(--success); }
+    .stat-icon.resolved-ic { background: #dbeafe; color: var(--info); }
+    .stat-info h3 { font-size: 1.75rem; font-weight: 800; color: var(--text); }
+    .stat-info p { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* ── Depot Info Card ── */
+    .depot-info-card {
+      background: linear-gradient(135deg, var(--primary), #B91C1C);
+      border-radius: var(--radius);
+      padding: 1.5rem 2rem;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
       margin-bottom: 2rem;
-      border: 1px solid var(--border);
+      box-shadow: 0 8px 24px rgba(122,12,12,0.25);
+      flex-wrap: wrap;
+      animation: slideUp 0.35s ease;
+    }
+    .depot-info-left { display: flex; align-items: center; gap: 1.25rem; }
+    .depot-icon { width: 60px; height: 60px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.25); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; }
+    .depot-name-big { font-size: 1.25rem; font-weight: 800; margin-bottom: 0.2rem; }
+    .depot-meta { font-size: 0.82rem; opacity: 0.85; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .depot-meta span { display: flex; align-items: center; gap: 0.35rem; }
+    .depot-info-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; }
+    .depot-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; padding: 0.4rem 0.85rem; font-size: 0.78rem; font-weight: 600; }
+    .depot-contact { font-size: 0.82rem; opacity: 0.8; display: flex; align-items: center; gap: 0.4rem; }
+
+    /* ── Dashboard Grid ── */
+    .dashboard-grid { display: grid; grid-template-columns: 1fr 1.6fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+
+    /* ── Cards ── */
+    .data-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .card-header { padding: 1.1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .card-header h3 { font-size: 1rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 0.5rem; }
+    .badge-pill { background: var(--bg); color: var(--text-muted); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; padding: 0.2rem 0.6rem; border-radius: 50px; border: 1px solid var(--border); }
+    .card-body { padding: 1.5rem; }
+
+    /* ── Found Luggage Upload Form ── */
+    .form-group { margin-bottom: 1.1rem; }
+    .form-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem; }
+    .form-group label i { color: var(--primary-light); }
+    .form-control { width: 100%; padding: 0.7rem 0.9rem; border: 2px solid var(--border); border-radius: 10px; font-size: 0.875rem; font-family: inherit; color: var(--text); background: white; transition: border-color 0.2s, box-shadow 0.2s; outline: none; }
+    .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(122,12,12,0.1); }
+    textarea.form-control { resize: vertical; min-height: 90px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+
+    /* Photo upload area */
+    .photo-upload-area {
+      border: 2px dashed var(--border); border-radius: 10px;
+      padding: 1.25rem; text-align: center; cursor: pointer;
+      transition: all 0.25s; background: #fafafa; position: relative;
+    }
+    .photo-upload-area:hover { border-color: var(--primary); background: #fff5f5; }
+    .photo-upload-area.has-file { border-color: var(--success); background: #f0fdf4; }
+    .photo-upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .photo-upload-icon { font-size: 1.75rem; color: var(--text-muted); margin-bottom: 0.35rem; }
+    .photo-upload-text { font-size: 0.78rem; color: var(--text-muted); }
+    .photo-preview-img { max-width: 100%; max-height: 130px; border-radius: 8px; margin-top: 0.5rem; display: none; }
+
+    .btn-upload { display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 10px; font-size: 0.9rem; font-weight: 600; font-family: inherit; cursor: pointer; width: 100%; transition: all 0.25s; margin-top: 0.5rem; }
+    .btn-upload:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(122,12,12,0.3); }
+    .btn-upload:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── Table ── */
+    .table-wrapper { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 0.8rem 1.25rem; text-align: left; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); background: #f9fafb; border-bottom: 1px solid var(--border); }
+    tbody td { padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafafa; }
+
+    .status-badge { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.28rem 0.65rem; border-radius: 50px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+    .status-badge.reported { background: #fef3c7; color: #92400e; }
+    .status-badge.under_review { background: #dbeafe; color: #1e40af; }
+    .status-badge.found { background: #dcfce7; color: #166534; }
+    .status-badge.returned { background: #f3e8ff; color: #6b21a8; }
+    .status-badge.in-custody { background: #dcfce7; color: #166534; }
+
+    .status-select { padding: 0.35rem 0.6rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.8rem; font-family: inherit; background: white; cursor: pointer; }
+    .ai-btn { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; border-radius: 8px; padding: 0.4rem 0.8rem; font-size: 0.78rem; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 0.3rem; transition: opacity 0.2s; }
+    .ai-btn:hover { opacity: 0.88; }
+    .action-icon-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; width: 30px; height: 30px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; transition: all 0.2s; }
+    .action-icon-btn:hover { background: var(--border); color: var(--text); }
+    .action-icon-btn.delete:hover { background: #fef2f2; color: var(--danger); border-color: var(--danger); }
+
+    .empty-msg { padding: 2.5rem; text-align: center; color: var(--text-muted); }
+    .empty-msg i { font-size: 2.5rem; opacity: 0.2; display: block; margin-bottom: 0.75rem; }
+
+    /* ── AI Match Modal ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 800; align-items: center; justify-content: center; padding: 1.5rem; }
+    .modal-overlay.open { display: flex; }
+    .modal-card { background: white; border-radius: var(--radius); width: 100%; max-width: 640px; max-height: 85vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 25px 50px rgba(0,0,0,0.25); animation: slideUp 0.3s ease; }
+    .modal-header { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; padding: 1.1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+    .modal-header h3 { font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    .modal-close { background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .modal-body { padding: 1.5rem; overflow-y: auto; }
+    .match-card { background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; display: flex; gap: 1rem; margin-bottom: 1rem; }
+    .match-card img { width: 80px; height: 80px; object-fit: cover; border-radius: 10px; flex-shrink: 0; border: 1px solid var(--border); }
+    .match-info h4 { font-size: 0.95rem; margin-bottom: 0.4rem; }
+    .match-info p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0.3rem; }
+    .match-score-pill { display: inline-block; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; font-size: 0.8rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 50px; margin-bottom: 0.5rem; }
+    .btn-verify { background: var(--success); color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.82rem; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 0.35rem; }
+
+    /* ── Animations ── */
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 768px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .depot-info-card { flex-direction: column; }
     }
   </style>
 </head>
 
 <body>
-  <nav class="main-nav">
-    <div class="nav-container">
-      <a href="/" class="nav-brand">
-        <i class="fas fa-user-shield"></i>
-        <span>Manager Portal</span>
-      </a>
-      <div class="nav-links">
-        <span id="manager-depot-name" style="color: var(--tn-gold); font-weight: 700; font-size: 0.9rem;">
-          <i class="fas fa-map-marker-alt"></i> Loading Depot...
-        </span>
-        <button id="manager-logout" class="logout-link">Logout</button>
+
+  <!-- AI Match Modal -->
+  <div class="modal-overlay" id="match-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fas fa-robot"></i> AI Match Analysis</h3>
+        <button class="modal-close" onclick="document.getElementById('match-modal').classList.remove('open')">&times;</button>
       </div>
+      <div class="modal-body" id="match-body">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Navbar -->
+  <nav>
+    <a href="/" class="nav-brand">
+      <i class="fas fa-user-shield"></i>
+      <span>Manager Portal</span>
+    </a>
+    <div class="nav-right">
+      <div class="depot-tag">
+        <i class="fas fa-map-marker-alt"></i>
+        <span id="nav-depot-name">Loading depot...</span>
+      </div>
+      <button class="logout-btn" id="manager-logout">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </button>
     </div>
   </nav>
 
-  <main class="dashboard-container">
-    <div class="dashboard-header fade-in">
+  <main class="page-container">
+
+    <!-- Page Header -->
+    <div class="page-header">
       <div>
-        <h1 class="tamil-text">நிர்வாக பட்டி</h1>
-        <h2>Depot Management Console</h2>
-        <p class="muted">Official controls for TNSTC / MTC / SETC personnel</p>
+        <p class="tamil-text">நிர்வாக பட்டி</p>
+        <h1><i class="fas fa-warehouse" style="font-size:1.5rem;margin-right:0.5rem;"></i>Depot Management Console</h1>
+        <p>Official controls for TNSTC / MTC / SETC personnel</p>
       </div>
-      <div class="header-actions">
-        <button onclick="location.reload()" class="action-btn"><i class="fas fa-sync"></i> Refresh Data</button>
-      </div>
+      <button class="btn-refresh" onclick="fetchAll()">
+        <i class="fas fa-sync-alt"></i> Refresh Data
+      </button>
     </div>
 
+    <!-- Alert -->
     <div id="manager-alert"></div>
 
     <!-- Stats -->
-    <div class="stats-grid slide-up">
-      <div class="stat-card">
+    <div class="stats-grid">
+      <div class="stat-card incoming">
         <div class="stat-icon pending"><i class="fas fa-inbox"></i></div>
         <div class="stat-info">
-          <h3 id="stat-lost-count">0</h3>
+          <h3 id="stat-incoming">0</h3>
           <p>Incoming Reports</p>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon found"><i class="fas fa-box"></i></div>
+      <div class="stat-card found">
+        <div class="stat-icon found-ic"><i class="fas fa-box-open"></i></div>
         <div class="stat-info">
-          <h3 id="stat-found-count">0</h3>
-          <p>Found in Depot</p>
+          <h3 id="stat-found">0</h3>
+          <p>Found Items in Depot</p>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon resolved"><i class="fas fa-check-circle"></i></div>
+      <div class="stat-card resolved">
+        <div class="stat-icon resolved-ic"><i class="fas fa-check-circle"></i></div>
         <div class="stat-info">
-          <h3 id="stat-resolved-count">0</h3>
-          <p>Resolved Cases</p>
+          <h3 id="stat-resolved">0</h3>
+          <p>Cases Resolved</p>
         </div>
       </div>
     </div>
 
-    <div class="dashboard-grid">
-      <!-- Post Found Item -->
-      <div class="data-card slide-up" style="animation-delay: 0.1s;">
-        <div class="card-header">
-          <h3><i class="fas fa-plus-circle"></i> Post Found Luggage</h3>
+    <!-- Depot Info Card (replaces Leaflet map) -->
+    <div class="depot-info-card" id="depot-info-card" style="display:none;">
+      <div class="depot-info-left">
+        <div class="depot-icon"><i class="fas fa-bus"></i></div>
+        <div>
+          <div class="depot-name-big" id="depot-display-name">—</div>
+          <div class="depot-meta">
+            <span><i class="fas fa-city"></i> <span id="depot-display-city">—</span></span>
+            <span><i class="fas fa-tag"></i> <span id="depot-display-type">—</span></span>
+            <span><i class="fas fa-map-marker-alt"></i> Tamil Nadu</span>
+          </div>
         </div>
-        <div style="padding: 1.5rem;">
-          <form id="found-luggage-form">
+      </div>
+      <div class="depot-info-right">
+        <div class="depot-badge" id="depot-display-id">—</div>
+        <div class="depot-contact"><i class="fas fa-phone"></i> <span id="depot-display-contact">—</span></div>
+      </div>
+    </div>
+
+    <!-- Main Grid: Upload | Lost Reports -->
+    <div class="dashboard-grid">
+
+      <!-- Upload Found Item -->
+      <div class="data-card" style="animation: slideUp 0.4s ease;">
+        <div class="card-header">
+          <h3><i class="fas fa-upload" style="color:var(--primary-light);"></i> Register Found Item</h3>
+        </div>
+        <div class="card-body">
+          <form id="found-luggage-form" enctype="multipart/form-data">
             <div class="form-group">
-              <label for="found_description">Item Description</label>
-              <textarea id="found_description" name="description" rows="3" placeholder="Describe the item in detail..."
-                required></textarea>
+              <label for="found_description"><i class="fas fa-align-left"></i> Item Description <span style="color:red;">*</span></label>
+              <textarea id="found_description" name="description" class="form-control" rows="3"
+                placeholder="Describe the found item clearly: colour, type, brand, size, markings..." required></textarea>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-row">
               <div class="form-group">
-                <label for="found_date">Date Found</label>
-                <input type="date" id="found_date" name="found_date" required>
+                <label for="found_date"><i class="fas fa-calendar-alt"></i> Date Found <span style="color:red;">*</span></label>
+                <input type="date" id="found_date" name="found_date" class="form-control" required>
               </div>
               <div class="form-group">
-                <label for="found_photo">Photo Attachment</label>
-                <input type="file" id="found_photo" name="photo" accept="image/*" required>
+                <label><i class="fas fa-camera"></i> Photo Evidence <span style="color:red;">*</span></label>
+                <div class="photo-upload-area" id="found-photo-area">
+                  <input type="file" id="found_photo" name="photo" accept="image/*" required>
+                  <div id="found-upload-placeholder">
+                    <div class="photo-upload-icon"><i class="fas fa-camera"></i></div>
+                    <div class="photo-upload-text">Click to upload photo</div>
+                    <div class="photo-upload-text" style="font-size:0.68rem;margin-top:3px;">(Required for registration)</div>
+                  </div>
+                  <img id="found-photo-preview" class="photo-preview-img" alt="Found item preview">
+                </div>
               </div>
             </div>
-            <button type="submit" class="btn-primary">
-              <i class="fas fa-upload"></i> Upload & Post Item
+            <button type="submit" class="btn-upload" id="upload-btn">
+              <i class="fas fa-upload"></i> Upload & Register Found Item
             </button>
           </form>
+          <div style="margin-top:1rem;padding:0.85rem;background:#fff9eb;border:1px solid #f59e0b33;border-radius:10px;font-size:0.78rem;color:#92400e;">
+            <i class="fas fa-lightbulb" style="color:var(--accent);"></i>
+            <strong>Tip:</strong> Once you upload a found item, our AI will automatically scan all open lost reports and instantly notify any matching passenger.
+          </div>
         </div>
       </div>
 
-      <!-- Relevant Lost Reports -->
-      <div class="data-card slide-up" style="animation-delay: 0.2s;">
+      <!-- Lost Reports Table -->
+      <div class="data-card" style="animation: slideUp 0.5s ease;">
         <div class="card-header">
-          <h3><i class="fas fa-list-ul"></i> Relevant Lost Reports</h3>
-          <span class="badge" style="background:#F3F4F6;">ALONG ROUTE</span>
+          <h3><i class="fas fa-list-ul" style="color:var(--info);"></i> Incoming Lost Reports</h3>
+          <span class="badge-pill">ALONG YOUR ROUTE</span>
         </div>
-        <div class="table-responsive">
-          <table id="lost-reports-table">
+        <div class="table-wrapper">
+          <table>
             <thead>
               <tr>
                 <th>Passenger Item</th>
                 <th>Contact</th>
-                <th>AI Search</th>
-                <th>Status Update</th>
+                <th>AI Match</th>
+                <th>Status</th>
               </tr>
             </thead>
-            <tbody>
-              <!-- Loaded via manager.js -->
+            <tbody id="lost-reports-tbody">
+              <tr><td colspan="4" style="text-align:center;padding:2.5rem;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>
             </tbody>
           </table>
         </div>
-        <div id="no-reports-msg" class="hidden" style="padding: 3rem; text-align: center;">
-          <p class="muted">No relevant lost reports found for this depot.</p>
+        <div id="no-reports-msg" class="empty-msg" style="display:none;">
+          <i class="fas fa-inbox"></i>
+          <p>No lost reports for your depot route yet.</p>
         </div>
       </div>
+
     </div>
 
-    <!-- Depot Map View -->
-    <div class="data-card slide-up" style="margin-top: 2rem;">
+    <!-- My Depot Found Items -->
+    <div class="data-card" style="animation: slideUp 0.55s ease;">
       <div class="card-header">
-        <h3><i class="fas fa-map-marked-alt"></i> My Depot Location</h3>
+        <h3><i class="fas fa-archive" style="color:var(--success);"></i> My Depot Found Items</h3>
+        <span class="badge-pill" id="found-count-badge">0 items</span>
       </div>
-      <div style="padding: 1.5rem;">
-        <div id="manager-depot-map"></div>
-      </div>
-    </div>
-
-    <!-- My Depot Items -->
-    <div class="data-card slide-up" style="margin-top: 2rem; animation-delay: 0.3s;">
-      <div class="card-header">
-        <h3><i class="fas fa-archive"></i> My Depot Found Items</h3>
-      </div>
-      <div class="table-responsive">
-        <table id="found-items-table">
+      <div class="table-wrapper">
+        <table>
           <thead>
             <tr>
-              <th>Item Detail</th>
-              <th>Found Date</th>
+              <th>Item Photo & Description</th>
+              <th>Date Found</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody>
-            <!-- Loaded via manager.js -->
+          <tbody id="found-items-tbody">
+            <tr><td colspan="4" style="text-align:center;padding:2.5rem;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>
           </tbody>
         </table>
       </div>
-      <div id="no-found-items-msg" class="hidden" style="padding: 3rem; text-align: center;">
-        <p class="muted">You haven't posted any found items yet.</p>
+      <div id="no-found-msg" class="empty-msg" style="display:none;">
+        <i class="fas fa-box-open"></i>
+        <p>No found items registered yet. Upload one above.</p>
       </div>
     </div>
+
   </main>
 
-  <!-- AI Match Modal -->
-  <div id="match-modal" class="hidden"
-    style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 2rem;">
-    <div class="data-card" style="max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto;">
-      <div class="card-header">
-        <h3><i class="fas fa-magic"></i> AI Recommendation Matches</h3>
-        <button class="close-modal"
-          style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
-      </div>
-      <div id="match-results-container" style="padding: 1.5rem;">
-        <!-- Loaded via manager.js -->
-      </div>
-    </div>
-  </div>
-
-  <footer>
-    <div class="footer-content">
-      <span class="official-seal">TAMIL NADU STATE TRANSPORT CORPORATION</span>
-      <p class="footer-text">Official Depot Management System — Property of Govt. of TN</p>
-    </div>
-  </footer>
-
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/js/manager.js"></script>
-</body>
+  <script>
+    const API_BASE = '/api/manager';
+    const token = localStorage.getItem('jwt_token');
+    const userRole = localStorage.getItem('user_role');
 
+    // ── Auth & Role Guard ────────────────────────────────────────────────────
+    if (!token) { window.location.href = '/login.html'; }
+    if (userRole !== 'manager') { window.location.href = '/dashboard.html'; }
+
+    // ── SocketIO ─────────────────────────────────────────────────────────────
+    let socket;
+    function setupSocket() {
+      try {
+        socket = io({ auth: { token } });
+        socket.on('new_lost_report', (data) => {
+          showAlert(`🚨 New Lost Report: <strong>${data.report.item_name}</strong> — from ${data.report.source_depot_id} to ${data.report.destination_depot_id}`, 'info');
+          fetchReports();
+        });
+        socket.on('new_found_item', (data) => {
+          console.log('[Socket] New found item registered, matches triggered:', data.matches_triggered);
+        });
+      } catch (e) {
+        console.warn('[Socket] Could not connect:', e.message);
+      }
+    }
+
+    // ── Manager Depot Info ───────────────────────────────────────────────────
+    function fetchManagerInfo() {
+      fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(data => {
+          const user = data.user || data;
+          const depotId = user.assigned_depot_id;
+          const depotName = user.assigned_depot_name || depotId || 'Assigned Depot';
+
+          document.getElementById('nav-depot-name').textContent = depotName;
+
+          if (!depotId) return;
+
+          // Fetch full depot details
+          fetch('/api/depots', { headers: { 'Authorization': `Bearer ${token}` } })
+            .then(r => r.json())
+            .then(d => {
+              const depot = d.depots.find(dep => dep.depot_id === depotId);
+              const card = document.getElementById('depot-info-card');
+              card.style.display = 'flex';
+              document.getElementById('depot-display-name').textContent = depot ? depot.name : depotName;
+              document.getElementById('depot-display-city').textContent = depot ? `${depot.city}, ${depot.district}` : '—';
+              document.getElementById('depot-display-type').textContent = depot ? depot.type : '—';
+              document.getElementById('depot-display-id').textContent = `ID: ${depotId}`;
+              document.getElementById('depot-display-contact').textContent = depot ? (depot.contact_number || 'Not available') : '—';
+            });
+        })
+        .catch(e => console.error('Manager info error:', e));
+    }
+
+    // ── Fetch Reports ─────────────────────────────────────────────────────────
+    function fetchReports() {
+      fetch(`${API_BASE}/reports`, { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(data => {
+          const reports = data.reports || [];
+          document.getElementById('stat-incoming').textContent = reports.length;
+          document.getElementById('stat-resolved').textContent = reports.filter(r => r.status === 'returned').length;
+          renderReports(reports);
+        })
+        .catch(() => showAlert('Failed to load reports.', 'error'));
+    }
+
+    function renderReports(reports) {
+      const tbody = document.getElementById('lost-reports-tbody');
+      const empty = document.getElementById('no-reports-msg');
+      if (reports.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      tbody.innerHTML = reports.map(r => `
+        <tr>
+          <td>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <strong style="font-size:0.9rem;">${r.item_name}</strong>
+              <span style="font-size:0.75rem;color:var(--text-muted);">
+                <span style="color:#22c55e;font-weight:600;">${r.source_depot_id}</span>
+                <i class="fas fa-arrow-right" style="font-size:0.6rem;margin:0 3px;"></i>
+                <span style="color:#ef4444;font-weight:600;">${r.destination_depot_id}</span>
+              </span>
+              <span style="font-size:0.72rem;color:var(--text-muted);">📅 ${r.date_lost}</span>
+            </div>
+          </td>
+          <td>
+            <span style="font-weight:600;font-size:0.85rem;"><i class="fas fa-phone" style="color:var(--text-muted);"></i> ${r.contact_phone}</span>
+          </td>
+          <td>
+            <button class="ai-btn" onclick="showMatches('${r.id}')">
+              <i class="fas fa-robot"></i> Analyze
+            </button>
+          </td>
+          <td>
+            <select class="status-select" onchange="updateStatus('${r.id}', this.value)" style="background:${statusBg(r.status)};">
+              <option value="reported" ${r.status==='reported'?'selected':''}>Reported</option>
+              <option value="under_review" ${r.status==='under_review'?'selected':''}>Under Review</option>
+              <option value="found" ${r.status==='found'?'selected':''}>Found</option>
+              <option value="returned" ${r.status==='returned'?'selected':''}>Returned</option>
+            </select>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function statusBg(s) {
+      return { reported: '#fef3c7', under_review: '#dbeafe', found: '#dcfce7', returned: '#f3e8ff' }[s] || 'white';
+    }
+
+    // ── Fetch Found Items ────────────────────────────────────────────────────
+    function fetchFoundItems() {
+      console.log('🔍 Fetching found items...');
+      fetch(`${API_BASE}/found-luggage`, { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(r => {
+          console.log('🔍 Found items response status:', r.status);
+          return r.json();
+        })
+        .then(data => {
+          console.log('🔍 Found items response data:', data);
+          const items = data.found_luggage || [];  // Fixed: use found_luggage instead of items
+          console.log('🔍 Ledger items fetched:', items.length);
+          console.log('🔍 Items:', items);
+          
+          document.getElementById('stat-found').textContent = items.length;
+          document.getElementById('found-count-badge').textContent = `${items.length} item${items.length !== 1 ? 's' : ''}`;
+          renderFoundItems(items);
+        })
+        .catch(e => {
+          console.error('🔍 Found items error:', e);
+          console.error('🔍 Error details:', e.stack);
+        });
+    }
+
+    function renderFoundItems(items) {
+      console.log('🔍 Rendering found items:', items.length);
+      const tbody = document.getElementById('found-items-tbody');
+      const empty = document.getElementById('no-found-msg');
+      
+      console.log('🔍 DOM elements:', {
+        tbody: tbody ? 'found' : 'not found',
+        empty: empty ? 'found' : 'not found'
+      });
+      
+      if (items.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        console.log('🔍 No items - showing empty message');
+        return;
+      }
+      
+      empty.style.display = 'none';
+      tbody.innerHTML = items.map(item => `
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <img src="${item.photo_url || '/static/images/placeholder.png'}" style="width:52px;height:52px;border-radius:10px;object-fit:cover;border:1px solid var(--border);flex-shrink:0;" alt="found item">
+              <div>
+                <div style="font-weight:600;font-size:0.875rem;">${item.description}</div>
+                <small style="color:var(--text-muted);">Ref: ...${item.id.slice(-6)}</small>
+              </div>
+            </div>
+          </td>
+          <td><span style="font-size:0.875rem;">${item.found_date}</span></td>
+          <td>${item.depot_id}</td>
+          <td>
+            <button class="btn-edit" onclick="window.editFoundItem('${item.id}', '${item.description}')">✏️</button>
+            <button class="btn-delete" onclick="window.deleteFoundItem('${item.id}')">🗑️</button>
+          </td>
+        </tr>
+      `).join('');
+      
+      console.log('🔍 Items rendered successfully');
+    }
+
+    // ── CRUD Found Items ──────────────────────────────────────────────────────
+    window.editFoundItem = (id, oldDesc) => {
+      const newDesc = prompt('Update Item Description:', oldDesc);
+      if (!newDesc || newDesc === oldDesc) return;
+      fetch(`${API_BASE}/found-luggage/${id}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: newDesc })
+      }).then(r => r.json()).then(d => { showAlert(d.message, 'success'); fetchFoundItems(); });
+    };
+
+    window.deleteFoundItem = (id) => {
+      if (!confirm('Remove this found item record from the depot ledger?')) return;
+      fetch(`${API_BASE}/found-luggage/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(r => r.json()).then(d => { showAlert(d.message, 'success'); fetchFoundItems(); });
+    };
+
+    // ── Update Report Status ─────────────────────────────────────────────────
+    window.updateStatus = (reportId, status) => {
+      fetch(`${API_BASE}/update-status`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report_id: reportId, status })
+      }).then(r => r.json()).then(d => {
+        showAlert(`✅ Status updated to: ${status}`, 'success');
+        fetchReports();
+      }).catch(() => showAlert('Failed to update status.', 'error'));
+    };
+
+    // ── AI Matches Modal ─────────────────────────────────────────────────────
+    window.showMatches = (reportId) => {
+      const modal = document.getElementById('match-modal');
+      const body = document.getElementById('match-body');
+      modal.classList.add('open');
+      body.innerHTML = '<div style="text-align:center;padding:2rem;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;color:#7c3aed;"></i><p style="margin-top:1rem;color:var(--text-muted);">AI is analyzing found items for potential matches...</p></div>';
+
+      fetch(`${API_BASE}/matches/${reportId}`, { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(data => {
+          const matches = data.matches || [];
+          if (matches.length === 0) {
+            body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fas fa-search" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:1rem;"></i><p>No matching found items in this depot\'s database for this report.</p></div>';
+            return;
+          }
+          body.innerHTML = matches.map(m => `
+            <div class="match-card">
+              ${m.photo_url ? `<img src="${m.photo_url}" alt="Found Item">` : `<div style="width:80px;height:80px;background:var(--bg);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.75rem;color:var(--text-muted);flex-shrink:0;"><i class="fas fa-image"></i></div>`}
+              <div class="match-info">
+                <div class="match-score-pill">${m.match_score}% Match</div>
+                <h4>Found at ${m.depot_id} depot</h4>
+                <p>${m.description}</p>
+                <p><small><i class="fas fa-calendar-alt"></i> Found on: ${m.found_date}</small></p>
+                <button class="btn-verify" onclick="verifyAndNotify('${reportId}', '${m.id || m.found_id}')">
+                  <i class="fas fa-hand-holding-heart"></i> Verify & Notify Passenger
+                </button>
+              </div>
+            </div>
+          `).join('');
+        })
+        .catch(() => { body.innerHTML = '<p style="color:red;padding:1rem;">Failed to retrieve AI matches.</p>'; });
+    };
+
+    document.getElementById('match-modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('match-modal')) document.getElementById('match-modal').classList.remove('open');
+    });
+
+    window.verifyAndNotify = (lostId, foundId) => {
+      window.updateStatus(lostId, 'found');
+      showAlert('✅ Passenger has been notified of the found item. Status updated to Found.', 'success');
+      document.getElementById('match-modal').classList.remove('open');
+    };
+
+    // ── Upload Form ──────────────────────────────────────────────────────────
+    document.getElementById('found_photo').addEventListener('change', () => {
+      const file = document.getElementById('found_photo').files[0];
+      const preview = document.getElementById('found-photo-preview');
+      const placeholder = document.getElementById('found-upload-placeholder');
+      const area = document.getElementById('found-photo-area');
+      if (file) {
+        area.classList.add('has-file');
+        const reader = new FileReader();
+        reader.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; placeholder.style.display = 'none'; };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    document.getElementById('found-luggage-form').addEventListener('submit', (e) => {
+      console.log('🔍 Upload form submit triggered');
+      e.preventDefault();
+      
+      console.log('🔍 Token:', token ? 'EXISTS' : 'MISSING');
+      console.log('🔍 API_BASE:', API_BASE);
+      
+      const formData = new FormData(e.target);
+      console.log('🔍 FormData:', formData);
+      
+      const btn = document.getElementById('upload-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing & Matching...';
+
+      console.log('🔍 Making API call to:', `${API_BASE}/found-luggage`);
+      
+      fetch(`${API_BASE}/found-luggage`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      })
+        .then(r => {
+          console.log('🔍 API response status:', r.status);
+          return r.json();
+        })
+        .then(data => {
+          console.log('🔍 API response data:', data);
+          console.log('🔍 Checking condition: data.item && data.item.id');
+          console.log('🔍 data.item:', data.item);
+          console.log('🔍 data.item.id:', data.item ? data.item.id : 'N/A');
+          
+          if (data.item && data.item.id) {
+            console.log('🔍 Condition PASSED - showing success');
+            const notifMsg = data.notifications_sent > 0
+              ? ` <strong>${data.notifications_sent} passenger(s) were automatically notified!</strong>`
+              : ' No immediate matches found, but future reports will be checked.';
+            showAlert(`✅ Found item registered successfully.${notifMsg}`, 'success');
+            e.target.reset();
+            document.getElementById('found-photo-preview').style.display = 'none';
+            document.getElementById('found-upload-placeholder').style.display = 'block';
+            document.getElementById('found-photo-area').classList.remove('has-file');
+            fetchFoundItems();
+          } else {
+            console.log('🔍 Condition FAILED - showing error');
+            showAlert(data.message || 'Registration failed.', 'error');
+          }
+        })
+        .catch((error) => {
+          console.error('🔍 Upload error:', error);
+          showAlert('Network error. Please try again.', 'error')
+        })
+        .finally(() => {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-upload"></i> Upload & Register Found Item';
+        });
+    });
+
+    // ── Logout ────────────────────────────────────────────────────────────────
+    document.getElementById('manager-logout').addEventListener('click', () => {
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('user_role');
+      window.location.href = '/login.html';
+    });
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function showAlert(msg, type) {
+      const el = document.getElementById('manager-alert');
+      el.innerHTML = `<div class="alert ${type}"><i class="fas fa-${type==='success'?'check-circle':type==='error'?'exclamation-circle':'info-circle'}"></i><span>${msg}</span></div>`;
+      setTimeout(() => el.innerHTML = '', 7000);
+    }
+
+    function fetchAll() { fetchReports(); fetchFoundItems(); }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchManagerInfo();
+      fetchReports();
+      fetchFoundItems();
+      setupSocket();
+      document.getElementById('found_date').valueAsDate = new Date();
+    });
+  </script>
+  
+  <!-- Notify User Functionality -->
+  <script src="js/notify_user.js"></script>
+  
+  <script>
+    // Update manager dashboard to include notify user functionality
+    const originalDisplayMatches = window.displayMatches;
+    
+    window.displayMatches = function(matches) {
+      // Call original function if it exists
+      if (originalDisplayMatches) {
+        originalDisplayMatches(matches);
+      }
+      
+      // Add notify buttons to matches
+      setTimeout(() => {
+        if (window.NotifyUserManager) {
+          window.NotifyUserManager.refreshNotifyButtons();
+        }
+      }, 100);
+    };
+    
+    // Update manager token for notify user
+    if (window.NotifyUserManager) {
+      window.NotifyUserManager.managerToken = localStorage.getItem('jwt_token');
+    }
+  </script>
+
+</body>
 </html>

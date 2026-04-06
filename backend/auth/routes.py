@@ -2,7 +2,7 @@ import secrets
 from datetime import datetime, timezone
 
 from bson import ObjectId
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 
 from ..extensions import bcrypt, mongo
 from .jwt_handler import create_access_token, jwt_required
@@ -101,6 +101,13 @@ def login():
 @auth_bp.get("/google/url")
 def google_auth_url():
     """Return the Google OAuth URL so frontend can redirect user."""
+    # Check if Google OAuth is configured
+    if not current_app.config.get('GOOGLE_CLIENT_ID') or not current_app.config.get('GOOGLE_CLIENT_SECRET'):
+        return jsonify({
+            "url": None,
+            "message": "Google OAuth not configured. Please use email/password login or contact administrator."
+        }), 200
+    
     state = secrets.token_urlsafe(16)
     url = get_google_auth_url(state)
     return jsonify({"url": url})
@@ -149,6 +156,14 @@ def google_callback():
 
 @auth_bp.get("/microsoft/url")
 def microsoft_auth_url():
+    """Return the Microsoft OAuth URL so frontend can redirect user."""
+    # Check if Microsoft OAuth is configured
+    if not current_app.config.get('MS_CLIENT_ID') or not current_app.config.get('MS_CLIENT_SECRET'):
+        return jsonify({
+            "url": None,
+            "message": "Microsoft OAuth not configured. Please use email/password login or contact administrator."
+        }), 200
+    
     state = secrets.token_urlsafe(16)
     url = get_ms_auth_url(state)
     return jsonify({"url": url})

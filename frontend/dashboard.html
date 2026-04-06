@@ -4,118 +4,695 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Reports - TN Bus Lost Luggage</title>
-  <!-- Google Fonts -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Roboto:wght@400;500&family=Noto+Sans+Tamil:wght@400;700&display=swap"
-    rel="stylesheet">
-  <!-- Font Awesome -->
+  <title>My Reports — TN Bus Lost & Found</title>
+  <meta name="description" content="Track your lost item reports and get AI match notifications from Tamil Nadu bus depots.">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Tamil:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/dashboard.css">
+  <style>
+    :root {
+      --primary: #1e3a5f;
+      --primary-light: #2563eb;
+      --accent: #f59e0b;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --bg: #f1f5f9;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 14px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Navbar ── */
+    nav {
+      background: var(--primary);
+      padding: 0.875rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.2);
+    }
+    .nav-brand { display: flex; align-items: center; gap: 0.6rem; color: white; text-decoration: none; font-weight: 700; font-size: 1.1rem; }
+    .nav-brand i { color: var(--accent); font-size: 1.3rem; }
+    .nav-links { display: flex; align-items: center; gap: 1.5rem; }
+    .nav-links a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover, .nav-links a.active { color: white; }
+    .logout-btn { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 0.45rem 1rem; border-radius: 8px; font-size: 0.85rem; cursor: pointer; font-family: inherit; transition: background 0.2s; }
+    .logout-btn:hover { background: rgba(255,255,255,0.22); }
+
+    /* Notification Bell */
+    .notif-btn {
+      position: relative;
+      background: none; border: none;
+      color: rgba(255,255,255,0.85); font-size: 1.15rem;
+      cursor: pointer; padding: 0.35rem;
+      transition: color 0.2s;
+    }
+    .notif-btn:hover { color: white; }
+    .notif-badge {
+      position: absolute; top: -4px; right: -6px;
+      background: var(--danger); color: white;
+      font-size: 0.6rem; font-weight: 700;
+      width: 17px; height: 17px; border-radius: 50%;
+      display: none; align-items: center; justify-content: center;
+      border: 2px solid var(--primary);
+    }
+    .notif-badge.visible { display: flex; }
+
+    /* ── Notification Panel ── */
+    .notif-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 900;
+    }
+    .notif-overlay.open { display: block; }
+
+    .notif-panel {
+      position: fixed;
+      top: 0; right: 0;
+      width: 400px; max-width: 100vw;
+      height: 100vh;
+      background: white;
+      z-index: 901;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex; flex-direction: column;
+      box-shadow: -8px 0 32px rgba(0,0,0,0.15);
+    }
+    .notif-panel.open { transform: translateX(0); }
+
+    .notif-panel-header {
+      background: linear-gradient(135deg, var(--primary), #2563eb);
+      color: white;
+      padding: 1.25rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .notif-panel-header h3 { font-size: 1rem; font-weight: 700; }
+    .notif-panel-close {
+      background: rgba(255,255,255,0.15); border: none;
+      color: white; width: 32px; height: 32px; border-radius: 8px;
+      font-size: 1.1rem; cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .notif-panel-actions {
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: flex-end;
+    }
+    .notif-mark-all-btn {
+      font-size: 0.8rem; color: var(--primary-light);
+      background: none; border: none; cursor: pointer; font-family: inherit;
+    }
+
+    .notif-list { flex: 1; overflow-y: auto; padding: 0.5rem 0; }
+
+    .notif-item {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; gap: 1rem;
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+    .notif-item:hover { background: #f8fafc; }
+    .notif-item.unread { background: #eff6ff; border-left: 3px solid var(--primary-light); }
+
+    .notif-thumb {
+      width: 54px; height: 54px; flex-shrink: 0;
+      border-radius: 10px; object-fit: cover;
+      background: var(--bg);
+      border: 1px solid var(--border);
+    }
+
+    .notif-content { flex: 1; min-width: 0; }
+    .notif-title { font-size: 0.875rem; font-weight: 600; color: var(--text); margin-bottom: 0.2rem; }
+    .notif-desc { font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .notif-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem; }
+    .match-pill {
+      display: inline-block;
+      background: #dcfce7; color: #166534;
+      border-radius: 50px; font-size: 0.7rem; font-weight: 700;
+      padding: 0.15rem 0.5rem; margin-right: 0.4rem;
+    }
+
+    .notif-empty {
+      text-align: center; padding: 3rem 2rem;
+      color: var(--text-muted);
+    }
+    .notif-empty i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.3; }
+
+    /* ── Main Layout ── */
+    .page-container { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+
+    /* ── Header ── */
+    .page-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 2rem; gap: 1rem; flex-wrap: wrap;
+      animation: fadeIn 0.5s ease;
+    }
+    .page-header h1 { font-size: 1.75rem; font-weight: 800; color: var(--primary); margin-bottom: 0.25rem; }
+    .page-header p { color: var(--text-muted); font-size: 0.9rem; }
+    .tamil-text { font-family: 'Noto Sans Tamil', sans-serif; font-size: 1rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+
+    .btn-new-report {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      background: linear-gradient(135deg, var(--success), #22c55e);
+      color: white; text-decoration: none;
+      padding: 0.75rem 1.5rem; border-radius: 10px;
+      font-size: 0.9rem; font-weight: 600;
+      white-space: nowrap;
+      transition: all 0.25s; box-shadow: 0 4px 12px rgba(22,163,74,0.3);
+    }
+    .btn-new-report:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(22,163,74,0.4); }
+
+    /* ── Stats ── */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem; margin-bottom: 2rem;
+      animation: slideUp 0.4s ease;
+    }
+    .stat-card {
+      background: white; border-radius: var(--radius); padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow); display: flex; align-items: center; gap: 1rem;
+      border-left: 4px solid var(--border);
+      transition: transform 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-card.reported { border-color: var(--warning); }
+    .stat-card.review { border-color: var(--primary-light); }
+    .stat-card.resolved { border-color: var(--success); }
+    .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; }
+    .stat-icon.pending { background: #fef3c7; color: var(--warning); }
+    .stat-icon.review { background: #dbeafe; color: var(--primary-light); }
+    .stat-icon.resolved { background: #dcfce7; color: var(--success); }
+    .stat-info h3 { font-size: 1.75rem; font-weight: 800; color: var(--text); }
+    .stat-info p { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* ── Alert ── */
+    .alert-area { margin-bottom: 1rem; }
+    .alert {
+      border-radius: 10px; padding: 1rem 1.25rem;
+      font-size: 0.9rem; display: flex; align-items: flex-start; gap: 0.75rem;
+      animation: slideUp 0.3s ease;
+    }
+    .alert.error { background: #fef2f2; color: #991b1b; border-left: 4px solid var(--danger); }
+    .alert.success { background: #f0fdf4; color: #166534; border-left: 4px solid var(--success); }
+    .alert.info { background: #eff6ff; color: #1e40af; border-left: 4px solid var(--primary-light); }
+
+    /* ── Data Card ── */
+    .data-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; animation: slideUp 0.45s ease; }
+    .card-header { padding: 1.1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .card-header h3 { font-size: 1rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 0.5rem; }
+    .action-btn { background: var(--bg); border: 1px solid var(--border); padding: 0.4rem 0.85rem; border-radius: 8px; font-size: 0.8rem; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 0.35rem; color: var(--text-muted); transition: all 0.2s; }
+    .action-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+    /* ── Table ── */
+    .table-wrapper { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 0.85rem 1.25rem; text-align: left; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); background: #f8fafc; border-bottom: 1px solid var(--border); }
+    tbody td { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #fafbfc; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      padding: 0.3rem 0.75rem; border-radius: 50px;
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .badge.reported { background: #fef3c7; color: #92400e; }
+    .badge.under_review { background: #dbeafe; color: #1e40af; }
+    .badge.found { background: #dcfce7; color: #166534; }
+    .badge.returned { background: #f3e8ff; color: #6b21a8; }
+
+    .item-cell strong { display: block; font-size: 0.9rem; margin-bottom: 0.2rem; }
+    .route-chip { font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.3rem; margin-top: 0.2rem; }
+    .route-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
+    .route-dot.src { background: #22c55e; }
+    .route-dot.dst { background: #ef4444; }
+
+    .matches-btn {
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      color: white; border: none; border-radius: 8px;
+      padding: 0.45rem 0.9rem; font-size: 0.8rem; cursor: pointer;
+      font-family: inherit; display: flex; align-items: center; gap: 0.35rem;
+      transition: all 0.2s;
+    }
+    .matches-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    .empty-state { padding: 4rem 2rem; text-align: center; color: var(--text-muted); }
+    .empty-state i { font-size: 3.5rem; opacity: 0.2; margin-bottom: 1rem; display: block; }
+    .empty-state p { margin-bottom: 1rem; }
+    .empty-state a { color: var(--primary-light); text-decoration: none; font-weight: 600; }
+
+    /* ── Match Modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 800;
+      align-items: center; justify-content: center;
+      padding: 1.5rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-card { background: white; border-radius: var(--radius); width: 100%; max-width: 620px; max-height: 85vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 25px 50px rgba(0,0,0,0.25); animation: slideUp 0.3s ease; }
+    .modal-header { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; padding: 1.1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+    .modal-header h3 { font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    .modal-close { background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .modal-body { padding: 1.5rem; overflow-y: auto; }
+
+    .match-card { background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; display: flex; gap: 1rem; margin-bottom: 1rem; }
+    .match-card img { width: 80px; height: 80px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); flex-shrink: 0; }
+    .match-info h4 { font-size: 0.95rem; margin-bottom: 0.4rem; }
+    .match-info p { font-size: 0.83rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0.4rem; }
+    .match-score-pill { display: inline-block; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; font-size: 0.8rem; font-weight: 700; padding: 0.25rem 0.65rem; border-radius: 50px; margin-bottom: 0.5rem; }
+
+    /* ── Toast ── */
+    .toast-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 1000; display: flex; flex-direction: column; gap: 0.75rem; }
+    .toast { background: white; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); padding: 1rem 1.25rem; display: flex; align-items: flex-start; gap: 0.75rem; min-width: 300px; max-width: 400px; animation: slideUp 0.3s ease; border-left: 4px solid var(--success); }
+    .toast-icon { font-size: 1.3rem; flex-shrink: 0; }
+    .toast-body { flex: 1; }
+    .toast-title { font-weight: 700; font-size: 0.875rem; margin-bottom: 0.2rem; }
+    .toast-msg { font-size: 0.8rem; color: var(--text-muted); }
+    .toast-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem; padding: 0; flex-shrink: 0; }
+
+    /* ── Animations ── */
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 640px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .page-header { flex-direction: column; }
+      .notif-panel { width: 100vw; }
+    }
+  </style>
 </head>
 
 <body>
-  <nav class="main-nav">
-    <div class="nav-container">
-      <a href="/" class="nav-brand">
-        <i class="fas fa-bus-alt"></i>
-        <span>TN Bus Lost Luggage</span>
-      </a>
-      <ul class="nav-links">
-        <li><a href="/map.html">Map</a></li>
-        <li><a href="/dashboard.html" class="active">My Reports</a></li>
-        <li><button onclick="handleLogout()" class="logout-link">Logout</button></li>
-      </ul>
+
+  <!-- Notification Slide-in Panel -->
+  <div class="notif-overlay" id="notif-overlay" onclick="closeNotifPanel()"></div>
+  <div class="notif-panel" id="notif-panel">
+    <div class="notif-panel-header">
+      <h3><i class="fas fa-bell"></i> &nbsp;Notifications</h3>
+      <button class="notif-panel-close" onclick="closeNotifPanel()">&times;</button>
+    </div>
+    <div class="notif-panel-actions">
+      <button class="notif-mark-all-btn" onclick="markAllRead()"><i class="fas fa-check-double"></i> Mark all as read</button>
+    </div>
+    <div class="notif-list" id="notif-list">
+      <div class="notif-empty"><i class="fas fa-bell-slash"></i><p>No notifications yet</p></div>
+    </div>
+  </div>
+
+  <!-- Navbar -->
+  <nav>
+    <a href="/" class="nav-brand">
+      <i class="fas fa-bus-alt"></i>
+      <span>TN Bus Lost & Found</span>
+    </a>
+    <div class="nav-links">
+      <a href="/report.html"><i class="fas fa-plus-circle"></i> Report Lost</a>
+      <a href="/dashboard.html" class="active"><i class="fas fa-list-alt"></i> My Reports</a>
+      <button class="notif-btn" id="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
+        <i class="fas fa-bell"></i>
+        <span class="notif-badge" id="notif-badge">0</span>
+      </button>
+      <button class="logout-btn" id="logout-btn">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </button>
     </div>
   </nav>
 
-  <main class="dashboard-container">
-    <div class="dashboard-header fade-in">
-      <div>
-        <h1 class="tamil-text">எனது அறிக்கைகள்</h1>
-        <h2>My Luggage Reports</h2>
-        <p class="muted">Track and manage your lost item claims</p>
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Match Modal -->
+  <div class="modal-overlay" id="match-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fas fa-magic"></i> AI Match Results</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
       </div>
-      <a href="/map.html" class="btn-primary" style="width: auto;">
-        <i class="fas fa-plus-circle"></i> New Report
+      <div class="modal-body" id="match-body">
+        <p>Loading matches...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="page-container">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div>
+        <p class="tamil-text">எனது அறிக்கைகள்</p>
+        <h1><i class="fas fa-list-alt" style="color:var(--primary-light);font-size:1.5rem;"></i> My Luggage Reports</h1>
+        <p>Track your lost item reports and AI-matched found items</p>
+      </div>
+      <a href="/report.html" class="btn-new-report">
+        <i class="fas fa-plus-circle"></i> Report a Lost Item
       </a>
     </div>
 
-    <div id="reports-alert"></div>
+    <!-- Alert Area -->
+    <div class="alert-area" id="alert-area"></div>
 
     <!-- Stats -->
-    <div class="stats-grid slide-up">
-      <div class="stat-card">
-        <div class="stat-icon pending"><i class="fas fa-clock"></i></div>
+    <div class="stats-grid">
+      <div class="stat-card reported">
+        <div class="stat-icon pending"><i class="fas fa-clipboard-list"></i></div>
         <div class="stat-info">
-          <h3 id="total-reports">0</h3>
+          <h3 id="stat-total">0</h3>
           <p>Total Filed</p>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon found"><i class="fas fa-search"></i></div>
+      <div class="stat-card review">
+        <div class="stat-icon review"><i class="fas fa-search"></i></div>
         <div class="stat-info">
-          <h3 id="pending-reports">0</h3>
+          <h3 id="stat-review">0</h3>
           <p>Under Review</p>
         </div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card resolved">
         <div class="stat-icon resolved"><i class="fas fa-check-double"></i></div>
         <div class="stat-info">
-          <h3 id="resolved-reports">0</h3>
+          <h3 id="stat-resolved">0</h3>
           <p>Resolved</p>
         </div>
       </div>
     </div>
 
     <!-- Reports Table -->
-    <div class="data-card slide-up" style="animation-delay: 0.1s;">
+    <div class="data-card">
       <div class="card-header">
-        <h3 style="font-size: 1.1rem; color: var(--text-main);"><i class="fas fa-list"></i> Recent Submissions</h3>
-        <button onclick="fetchReports()" class="action-btn"><i class="fas fa-sync-alt"></i> Refresh</button>
+        <h3><i class="fas fa-folder-open"></i> My Reports</h3>
+        <button class="action-btn" onclick="fetchReports()">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
       </div>
-      <div class="table-responsive">
-        <table id="reports-table">
+      <div class="table-wrapper">
+        <table>
           <thead>
             <tr>
-              <th>Item Description</th>
-              <th>Route Details</th>
-              <th>Date Reported</th>
+              <th>Item</th>
+              <th>Route</th>
+              <th>Travel Date</th>
               <th>Status</th>
-              <th>Action</th>
+              <!-- <th>AI Matches</th> -->
             </tr>
           </thead>
-          <tbody>
-            <!-- Loaded via reports.js -->
+          <tbody id="reports-tbody">
+            <tr><td colspan="4" style="text-align:center; padding:3rem; color:var(--text-muted);">
+              <i class="fas fa-spinner fa-spin"></i> Loading reports...
+            </td></tr>
           </tbody>
         </table>
       </div>
-
-      <div id="no-reports-message" class="hidden" style="padding: 4rem; text-align: center;">
-        <i class="fas fa-folder-open" style="font-size: 3rem; color: var(--border); margin-bottom: 1rem;"></i>
-        <p class="muted">No lost luggage reports found in your account.</p>
+      <div id="empty-state" style="display:none;">
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No lost luggage reports filed yet.</p>
+          <a href="/report.html"><i class="fas fa-plus"></i> File your first report</a>
+        </div>
       </div>
     </div>
+
   </main>
 
-  <footer>
-    <div class="footer-content">
-      <span class="official-seal">TNSTC OFFICIAL PASSENGER PORTAL</span>
-      <p class="footer-text">Helping citizens recover lost items across all bus depots of Tamil Nadu.</p>
-    </div>
-  </footer>
-
-  <script src="/js/auth.js"></script>
-  <script src="/js/reports.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
-    function handleLogout() {
+    const API_BASE = '/api';
+    const token = localStorage.getItem('jwt_token');
+
+    if (!token) { window.location.href = '/login.html'; }
+
+    let allNotifications = [];
+    let socket;
+
+    // ── SocketIO Real-time Setup ─────────────────────────────────────────────
+    function setupSocket() {
+      try {
+        socket = io({ auth: { token } });
+        socket.on('connect', () => console.log('[Socket] Connected, listening for match_found events'));
+
+        socket.on('match_found', (data) => {
+          console.log('[Socket] match_found event received:', data);
+          showToast(
+            '🎉 Match Found!',
+            data.message || `A match (${data.match_score}%) was found for "${data.item_name}" at ${data.depot_id} depot!`,
+            'success'
+          );
+          fetchNotifications();
+          fetchReports();
+        });
+
+        socket.on('status_update', (data) => {
+          showToast('📋 Status Update', data.message, 'info');
+          fetchReports();
+        });
+      } catch (e) {
+        console.warn('[Socket] Could not connect to SocketIO:', e.message);
+      }
+    }
+
+    // ── Notifications ────────────────────────────────────────────────────────
+    async function fetchNotifications() {
+      try {
+        const res = await fetch(`${API_BASE}/notifications`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        allNotifications = data.notifications || [];
+        const unread = data.unread_count || 0;
+
+        const badge = document.getElementById('notif-badge');
+        if (unread > 0) {
+          badge.classList.add('visible');
+          badge.textContent = unread > 9 ? '9+' : unread;
+        } else {
+          badge.classList.remove('visible');
+        }
+
+        renderNotifications(allNotifications);
+      } catch (e) {
+        console.error('[Notifications] Fetch error:', e);
+      }
+    }
+
+    function renderNotifications(notifs) {
+      const list = document.getElementById('notif-list');
+      if (notifs.length === 0) {
+        list.innerHTML = '<div class="notif-empty"><i class="fas fa-bell-slash"></i><p>No notifications yet</p></div>';
+        return;
+      }
+      list.innerHTML = notifs.map(n => `
+        <div class="notif-item ${n.read ? '' : 'unread'}" onclick="handleNotifClick('${n.id}', '${n.report_id}')">
+          ${n.found_photo_url
+            ? `<img src="${n.found_photo_url}" class="notif-thumb" alt="Found item">`
+            : `<div class="notif-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:var(--text-muted);"><i class="fas fa-box"></i></div>`
+          }
+          <div class="notif-content">
+            <div class="notif-title">
+              ${n.read ? '' : '<span style="display:inline-block;width:8px;height:8px;background:var(--primary-light);border-radius:50%;margin-right:5px;"></span>'}
+              Match Found for "${n.item_name}"
+            </div>
+            <div class="notif-desc">${n.found_description || 'Found item description unavailable'}</div>
+            <div class="notif-meta">
+              <span class="match-pill">${n.match_score}% match</span>
+              at ${n.depot_id} · ${n.found_date || ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function handleNotifClick(notifId, reportId) {
+      try {
+        await fetch(`${API_BASE}/notifications/${notifId}/read`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        fetchNotifications();
+        if (reportId) viewMatches(reportId);
+      } catch (e) {}
+      closeNotifPanel();
+    }
+
+    async function markAllRead() {
+      try {
+        await fetch(`${API_BASE}/notifications/read-all`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        fetchNotifications();
+      } catch (e) {}
+    }
+
+    function toggleNotifPanel() {
+      document.getElementById('notif-panel').classList.toggle('open');
+      document.getElementById('notif-overlay').classList.toggle('open');
+      if (document.getElementById('notif-panel').classList.contains('open')) {
+        fetchNotifications();
+      }
+    }
+    function closeNotifPanel() {
+      document.getElementById('notif-panel').classList.remove('open');
+      document.getElementById('notif-overlay').classList.remove('open');
+    }
+
+    // ── Reports ──────────────────────────────────────────────────────────────
+    async function fetchReports() {
+      try {
+        const res = await fetch(`${API_BASE}/my-reports`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        renderReports(data.reports || []);
+        updateStats(data.reports || []);
+      } catch (e) {
+        showAlert('Failed to load reports. Please refresh.', 'error');
+      }
+    }
+
+    function renderReports(reports) {
+      const tbody = document.getElementById('reports-tbody');
+      const empty = document.getElementById('empty-state');
+
+      if (reports.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+
+      tbody.innerHTML = reports.map(r => `
+        <tr>
+          <td>
+            <div class="item-cell">
+              <strong>${r.item_name}</strong>
+              <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">${r.item_description ? r.item_description.substring(0, 50) + '...' : ''}</div>
+            </div>
+          </td>
+          <td>
+            <div class="route-chip">
+              <span class="route-dot src"></span>
+              <span>${r.source_depot_id}</span>
+              <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i>
+              <span class="route-dot dst"></span>
+              <span>${r.destination_depot_id}</span>
+            </div>
+          </td>
+          <td><span style="font-size:0.85rem;">${r.date_lost || '—'}</span></td>
+          <td>
+            <span class="badge ${r.status}">
+              ${r.status === 'under_review' ? 'Under Review' : r.status === 'returned' ? 'Returned' : r.status.charAt(0).toUpperCase() + r.status.slice(1)}
+            </span>
+          </td>
+          <td>
+            <button class="matches-btn" onclick="viewMatches('${r.id}')">
+              <i class="fas fa-robot"></i> AI Matches
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function updateStats(reports) {
+      document.getElementById('stat-total').textContent = reports.length;
+      document.getElementById('stat-review').textContent = reports.filter(r => r.status === 'under_review').length;
+      document.getElementById('stat-resolved').textContent = reports.filter(r => r.status === 'found' || r.status === 'returned').length;
+    }
+
+    // ── AI Match Modal ────────────────────────────────────────────────────────
+    async function viewMatches(reportId) {
+      document.getElementById('match-modal').classList.add('open');
+      document.getElementById('match-body').innerHTML = '<div style="text-align:center;padding:2rem;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;color:var(--primary-light);"></i><p style="margin-top:1rem;color:var(--text-muted);">AI is scanning the found-item database...</p></div>';
+
+      try {
+        const res = await fetch(`${API_BASE}/matches/${reportId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const matches = data.matches || [];
+
+        if (matches.length === 0) {
+          document.getElementById('match-body').innerHTML = `
+            <div style="text-align:center;padding:2rem;color:var(--text-muted);">
+              <i class="fas fa-search" style="font-size:3rem;opacity:0.3;margin-bottom:1rem;display:block;"></i>
+              <p>No matches found yet.</p>
+              <p style="font-size:0.85rem;margin-top:0.5rem;">We'll notify you automatically as soon as a depot uploads a matching item.</p>
+            </div>`;
+          return;
+        }
+
+        document.getElementById('match-body').innerHTML = matches.map(m => `
+          <div class="match-card">
+            ${m.photo_url ? `<img src="${m.photo_url}" alt="Found item">` : `<div style="width:80px;height:80px;background:var(--bg);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:2rem;color:var(--text-muted);flex-shrink:0;"><i class="fas fa-image"></i></div>`}
+            <div class="match-info">
+              <div class="match-score-pill">${m.match_score}% Match</div>
+              <h4>Found at ${m.depot_id}</h4>
+              <p>${m.description}</p>
+              <p><small><i class="fas fa-calendar-alt"></i> Found on: ${m.found_date}</small></p>
+              <button onclick="claimItem('${m.id || m.found_id}', '${m.depot_id}')" style="background:var(--success);color:white;border:none;padding:0.5rem 1rem;border-radius:8px;font-size:0.82rem;cursor:pointer;font-family:inherit;">
+                <i class="fas fa-hand-holding"></i> Claim This Item
+              </button>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        document.getElementById('match-body').innerHTML = '<p style="color:red;">Failed to load matches. Please try again.</p>';
+      }
+    }
+
+    function closeModal() { document.getElementById('match-modal').classList.remove('open'); }
+    document.getElementById('match-modal').addEventListener('click', e => { if (e.target === document.getElementById('match-modal')) closeModal(); });
+
+    function claimItem(foundId, depotId) {
+      alert(`CLAIM REQUEST SENT!\n\nYour claim request for item at ${depotId} depot has been noted.\nPlease visit the depot with valid ID proof (Aadhar/Voter Card) to collect your item.\n\nThe depot staff will also contact you at your registered phone number.`);
+    }
+
+    // ── Toast ─────────────────────────────────────────────────────────────────
+    function showToast(title, msg, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.style.borderLeftColor = type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--primary-light)';
+      toast.innerHTML = `
+        <div class="toast-icon">${type === 'success' ? '🎉' : type === 'error' ? '❌' : 'ℹ️'}</div>
+        <div class="toast-body">
+          <div class="toast-title">${title}</div>
+          <div class="toast-msg">${msg}</div>
+        </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 8000);
+    }
+
+    function showAlert(msg, type) {
+      const area = document.getElementById('alert-area');
+      area.innerHTML = `<div class="alert ${type}"><i class="fas fa-info-circle"></i> ${msg}</div>`;
+      setTimeout(() => area.innerHTML = '', 6000);
+    }
+
+    // ── Logout ────────────────────────────────────────────────────────────────
+    document.getElementById('logout-btn').addEventListener('click', () => {
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('user_role');
       window.location.href = '/login.html';
-    }
-  </script>
-</body>
+    });
 
+    // ── Init ─────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchReports();
+      fetchNotifications();
+      setupSocket();
+    });
+  </script>
+
+</body>
 </html>

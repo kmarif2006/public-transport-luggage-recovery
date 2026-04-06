@@ -15,6 +15,7 @@ from .auth.routes import auth_bp
 from .depots.routes import depots_bp
 from .luggage.routes import luggage_bp
 from .manager.routes import manager_bp
+from .notifications.routes import notifications_bp
 
 
 def create_app() -> Flask:
@@ -49,6 +50,7 @@ def create_app() -> Flask:
     app.register_blueprint(depots_bp, url_prefix="/api")
     app.register_blueprint(luggage_bp, url_prefix="/api")
     app.register_blueprint(manager_bp, url_prefix="/api/manager")
+    app.register_blueprint(notifications_bp, url_prefix="/api")
 
     # Serve uploads from static
     @app.route('/uploads/<filename>')
@@ -77,13 +79,23 @@ def create_app() -> Flask:
     def signup_page_direct():
         return app.send_static_file("signup.html")
 
+    # New report page (replaces map)
+    @app.get("/report")
+    def report_page():
+        return app.send_static_file("report.html")
+
+    @app.get("/report.html")
+    def report_page_direct():
+        return app.send_static_file("report.html")
+
+    # Keep /map routes pointing to new report page for backward compatibility
     @app.get("/map")
     def map_page():
-        return app.send_static_file("map.html")
+        return redirect("/report.html")
 
     @app.get("/map.html")
     def map_page_direct():
-        return app.send_static_file("map.html")
+        return redirect("/report.html")
 
     @app.get("/dashboard")
     def dashboard_page():
@@ -112,34 +124,37 @@ def create_app() -> Flask:
     @socketio.on("connect")
     def socket_connect(auth):
         """
-        Authenticate Socket.IO connections using the same JWT and join depot room for managers.
+        Authenticate Socket.IO connections and join the appropriate rooms.
+        - Managers join depot_{depot_id} room for new report alerts.
+        - Users join user_{user_id} room for match/status notifications.
         """
-        from flask import session
-
         token = None
         if isinstance(auth, dict):
             token = auth.get("token")
         if not token:
-            return False  # reject
+            return False  # reject unauthenticated connections
 
         payload = decode_token(token)
         if not payload:
             return False
 
-        # Only managers need room-based notifications
-        if payload.get("role") == "manager":
+        user_id = payload.get("sub")
+        role = payload.get("role")
+
+        # All authenticated users join their personal room for notifications
+        if user_id:
+            join_room(f"user_{user_id}")
+
+        # Managers additionally join their depot room
+        if role == "manager":
             from bson import ObjectId
-
-            # Lazy import to avoid circulars
             from .extensions import mongo
-
             try:
-                manager = mongo.db.users.find_one({"_id": ObjectId(payload["sub"])})
+                manager = mongo.db.users.find_one({"_id": ObjectId(user_id)})
                 depot_id = manager.get("assigned_depot_id") if manager else None
                 if depot_id:
                     join_room(f"depot_{depot_id}")
             except Exception:
-                pass  # Handle MongoDB connection errors gracefully
+                pass  # Handle gracefully
 
     return app
-
