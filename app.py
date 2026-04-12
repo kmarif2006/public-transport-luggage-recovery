@@ -1,9 +1,3 @@
-"""
-TN Bus Lost & Found MVP
-A simple Flask app for Tamil Nadu Government Bus lost luggage tracking.
-No database - all data stored in memory (resets on restart).
-"""
-
 import os
 import uuid
 from datetime import datetime
@@ -39,10 +33,6 @@ app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max
 
 # Ensure upload folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# ============================================================================
-# HARDCODED DATA
-# ============================================================================
 
 ROUTES = [
     {
@@ -95,9 +85,6 @@ DEPOTS = {
     },
 }
 
-# ============================================================================
-# STORAGE HELPERS
-# ============================================================================
 
 def get_lost_reports():
     return list(lost_collection.find().sort("created_at", -1))
@@ -111,10 +98,6 @@ def get_depots():
         depots[d["phone"]] = d
     return depots
 
-
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
 
 def get_route_by_id(route_id):
     """Get route dict by its ID."""
@@ -156,10 +139,6 @@ def luggage_could_be_at_depot(stops, src, dst, depot_stop):
 
 
 def is_match(desc_a, desc_b, threshold=0.25):
-    """
-    Semantic text similarity check using Sentence-BERT.
-    Returns True if similarity score >= threshold.
-    """
     if not desc_a or not desc_b:
         return False
     similarity_score = semantic_similarity(desc_a.lower(), desc_b.lower())
@@ -167,7 +146,6 @@ def is_match(desc_a, desc_b, threshold=0.25):
 
 
 def allowed_file(filename):
-    """Check if uploaded file has allowed extension."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
@@ -222,11 +200,6 @@ def find_matches_for_depot(depot_phone, found_report):
         matches.append(lost)
     
     return matches
-
-
-# ============================================================================
-# ROUTES - PUBLIC
-# ============================================================================
 
 @app.route('/')
 def index():
@@ -298,9 +271,6 @@ def get_stops(route_id):
     return {"stops": []}, 404
 
 
-# ============================================================================
-# ROUTES - DEPOT
-# ============================================================================
 
 @app.route('/depot/login', methods=['POST'])
 def depot_login():
@@ -440,10 +410,6 @@ def submit_found():
     
     return redirect(url_for('depot_dashboard'))
 
-
-# ============================================================================
-# MAIN
-# ============================================================================
 
 if __name__ == '__main__':
     app.run(debug=True, port=5003)
