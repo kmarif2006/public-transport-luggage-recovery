@@ -209,8 +209,9 @@
                                             </svg>
                                         </a>
                                         {% if lost.tracking_id and lost.status != 'resolved' %}
-                                        <button onclick="resolveMatch('{{ lost.tracking_id }}', this)"
-                                                class="h-9 w-9 bg-green-500 text-white rounded-md flex items-center justify-center shadow-sm hover:bg-green-600 transition-colors"
+                                        <!-- Pass both match_id (to mark the link) and request_id (to mark the luggage) -->
+                                        <button onclick="resolveMatch('{{ lost.match_id }}', '{{ lost.request_id }}', '{{ lost.tracking_id }}', this)"
+                                                class="h-9 w-9 bg-green-500 text-white rounded-md flex items-center justify-center shadow-sm hover:bg-green-600 transition-colors resolve-btn"
                                                 title="Mark as Resolved">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -305,28 +306,47 @@ fileInput.addEventListener('change', function () {
 document.getElementById('found_date').max = new Date().toISOString().split('T')[0];
 
 // ── Resolve match via API ─────────────────────────────────────────────────
-function resolveMatch(trackingId, btn) {
-    if (!confirm(`Mark ${trackingId} as RESOLVED?\nThis means the passenger has collected their item.`)) return;
-
+function resolveMatch(matchId, requestId, trackingId, btn) {
+    // Send both IDs exactly as the backend expects
     fetch('/api/match/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tracking_id: trackingId })
+        body: JSON.stringify({
+            match_id: matchId,
+            request_id: requestId
+        })
     })
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            // Update the UI without a full page reload
-            btn.closest('.p-4.bg-slate-50').querySelector('.score-badge:last-child')
-                ?.insertAdjacentHTML('afterend',
-                    '<div class="mt-2 text-[10px] font-bold text-green-600 uppercase tracking-wide">✅ Resolved</div>');
+            // Find the closest card container (avoiding compound multi-class selectors which fail in some DOM engines)
+            const card = btn.closest('.border-tn-blue');
+            if (card) {
+                // Find the score badge container and append the resolved tag
+                const badges = card.querySelector('.flex-wrap.gap-2.mt-1');
+                if (badges) {
+                    badges.insertAdjacentHTML('afterend',
+                        '<div class="mt-2 text-[10px] font-bold text-green-600 uppercase tracking-wide">✅ Resolved</div>');
+                }
+            }
+            // Disable button and turn it gray
             btn.disabled = true;
-            btn.classList.replace('bg-green-500', 'bg-slate-300');
+            btn.classList.remove('bg-green-500', 'hover:bg-green-600');
+            btn.classList.add('bg-slate-300', 'cursor-not-allowed');
+            
+            // Also notify user
+            alert('Match successfully resolved!');
+            
+            // Optionally reload to clean up the dashboard (since other pending matches for this ID are now cancelled)
+            window.location.reload();
         } else {
             alert('Could not resolve: ' + data.message);
         }
     })
-    .catch(() => alert('Network error — please try again.'));
+    .catch(err => {
+        console.error(err);
+        alert('Network error — please try again.');
+    });
 }
 
 // ── Depot map ─────────────────────────────────────────────────────────────

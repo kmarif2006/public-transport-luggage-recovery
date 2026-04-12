@@ -1,22 +1,18 @@
 """
 app.py — TN Bus Lost & Found — Smart Recovery Platform
 =======================================================
-Main Flask application.  Structured in clear sections:
+Architecture:
+  - lost_reports  : submitted by passengers
+  - found_reports : submitted by depot staff
+  - matches       : persisted links between lost + found (with score + status)
 
-  SECTION 1 — App setup & config
-  SECTION 2 — Route & depot data
-  SECTION 3 — Helper functions (route logic, file handling)
-  SECTION 4 — Matching engine (unified scoring)
-  SECTION 5 — Flask routes (passengers)
-  SECTION 6 — Flask routes (depot staff)
-  SECTION 7 — API endpoints (status, routes for map, resolve)
+All state is 100% database-driven — nothing is held in memory between requests.
 """
 
 import os
 import uuid
 import logging
 from datetime import datetime
-from functools import lru_cache
 
 from flask import (
     Flask, render_template, request,
@@ -26,7 +22,6 @@ from werkzeug.utils import secure_filename
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
-# Our own AI engine — see similarity.py
 from similarity import TextSimilarity, ImageSimilarity, UnifiedScorer
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -40,41 +35,39 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tn-bus-lost-found-dev-key-2026')
 
-# ── MongoDB ──────────────────────────────────────────────────────────────────
+# ── MongoDB ───────────────────────────────────────────────────────────────────
 MONGO_URI = os.environ.get('MONGO_URI')
 client = MongoClient(MONGO_URI)
 db = client['tn_bus_lost_found']
 
-lost_collection   = db['lost_reports']
-found_collection  = db['found_reports']
-depots_collection = db['depots']
-# image_embeddings collection is managed internally by ImageSimilarity
+lost_collection    = db['lost_reports']   # Passenger lost item reports
+found_collection   = db['found_reports']  # Depot found item reports
+matches_collection = db['matches']        # Persisted AI-match links
+depots_collection  = db['depots']         # Depot credentials
 
-# ── AI models (loaded once at startup) ───────────────────────────────────────
+# ── AI Models (loaded once at startup) ───────────────────────────────────────
 logger.info("Initialising AI models…")
-text_sim  = TextSimilarity()                 # SBERT
-image_sim = ImageSimilarity(db=db)           # CLIP (optional, graceful fallback)
-scorer    = UnifiedScorer()
+text_sim  = TextSimilarity()
+image_sim = ImageSimilarity(db=db)
 logger.info(f"CLIP available: {image_sim.available}")
 
-# ── File upload config ────────────────────────────────────────────────────────
+# ── File Upload Config ────────────────────────────────────────────────────────
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024   # 5 MB
-
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# SECTION 2 — Route & Depot Data
+# SECTION 2 — Static Route & Depot Data
 # ──────────────────────────────────────────────────────────────────────────────
-# Each stop has lat/lon coordinates for the Leaflet map.
+# Stops include lat/lon for the Leaflet map.
 ROUTES = [
     {
         "id": "ch-co",
         "name": "Chennai ↔ Coimbatore",
-        "color": "#1F6FB2",   # Blue on map
+        "color": "#1F6FB2",
         "stops": [
             {"name": "Chennai",      "lat": 13.0827, "lon": 80.2707},
             {"name": "Chengalpattu", "lat": 12.6919, "lon": 79.9765},
@@ -87,7 +80,7 @@ ROUTES = [
     {
         "id": "ch-md",
         "name": "Chennai ↔ Madurai",
-        "color": "#C62828",   # Red on map
+        "color": "#C62828",
         "stops": [
             {"name": "Chennai",      "lat": 13.0827, "lon": 80.2707},
             {"name": "Chengalpattu", "lat": 12.6919, "lon": 79.9765},
@@ -100,53 +93,30 @@ ROUTES = [
     {
         "id": "md-tn",
         "name": "Madurai ↔ Tirunelveli",
-        "color": "#2E7D32",   # Green on map
+        "color": "#2E7D32",
         "stops": [
             {"name": "Madurai",      "lat":  9.9252, "lon": 78.1198},
             {"name": "Virudhunagar", "lat":  9.5851, "lon": 77.9624},
             {"name": "Kovilpatti",   "lat":  9.1710, "lon": 77.8652},
-            {"name": "Tirunelveli", "lat":  8.7139, "lon": 77.7567},
+            {"name": "Tirunelveli",  "lat":  8.7139, "lon": 77.7567},
         ]
     },
 ]
 
-# Map stop name → (lat, lon) for quick lookup
-STOP_COORDS = {}
-for route in ROUTES:
-    for stop in route["stops"]:
-        STOP_COORDS[stop["name"]] = (stop["lat"], stop["lon"])
+# Build a quick stop-name → coords lookup used by the map API
+STOP_COORDS = {
+    stop["name"]: (stop["lat"], stop["lon"])
+    for route in ROUTES
+    for stop in route["stops"]
+}
 
+# Depot credentials (same as seed_db.py — kept here for login auth)
 DEPOTS = {
-    "9000000001": {
-        "name": "Chennai Depot",
-        "password": "pass123",
-        "stop": "Chennai",
-        "routes": ["ch-co", "ch-md"]
-    },
-    "9000000002": {
-        "name": "Coimbatore Depot",
-        "password": "pass123",
-        "stop": "Coimbatore",
-        "routes": ["ch-co"]
-    },
-    "9000000003": {
-        "name": "Madurai Depot",
-        "password": "pass123",
-        "stop": "Madurai",
-        "routes": ["ch-md", "md-tn"]
-    },
-    "9000000004": {
-        "name": "Salem Depot",
-        "password": "pass123",
-        "stop": "Salem",
-        "routes": ["ch-co"]
-    },
-    "9000000005": {
-        "name": "Tirunelveli Depot",
-        "password": "pass123",
-        "stop": "Tirunelveli",
-        "routes": ["md-tn"]
-    },
+    "9000000001": {"name": "Chennai Depot",     "password": "pass123", "stop": "Chennai",     "routes": ["ch-co", "ch-md"]},
+    "9000000002": {"name": "Coimbatore Depot",  "password": "pass123", "stop": "Coimbatore",  "routes": ["ch-co"]},
+    "9000000003": {"name": "Madurai Depot",     "password": "pass123", "stop": "Madurai",     "routes": ["ch-md", "md-tn"]},
+    "9000000004": {"name": "Salem Depot",       "password": "pass123", "stop": "Salem",       "routes": ["ch-co"]},
+    "9000000005": {"name": "Tirunelveli Depot", "password": "pass123", "stop": "Tirunelveli", "routes": ["md-tn"]},
 }
 
 
@@ -154,40 +124,29 @@ DEPOTS = {
 # SECTION 3 — Helper Functions
 # ──────────────────────────────────────────────────────────────────────────────
 
-def get_lost_reports():
-    return list(lost_collection.find().sort("created_at", -1))
-
-def get_found_reports():
-    return list(found_collection.find().sort("created_at", -1))
-
-def get_depots():
-    """Load depot info from MongoDB into a dict keyed by phone."""
-    return {d["phone"]: d for d in depots_collection.find()}
-
-def get_route_by_id(route_id: str) -> dict | None:
-    """Return the route dict for a given route ID string."""
+def get_route_by_id(route_id: str):
+    """Return the route dict for a given route ID, or None."""
     for route in ROUTES:
         if route["id"] == route_id:
             return route
     return None
 
-def get_stop_names(route: dict) -> list[str]:
-    """Extract a plain list of stop name strings from a route dict."""
+def get_stop_names(route: dict) -> list:
+    """Return a plain list of stop name strings from a route dict."""
     return [s["name"] for s in route["stops"]]
 
 def allowed_file(filename: str) -> bool:
-    """Check if the uploaded file extension is allowed."""
+    """True if the file extension is in the allowed set."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def generate_tracking_id() -> str:
-    """Generate a human-readable tracking ID like TRK-A1B2C3D4."""
-    unique = uuid.uuid4().hex[:8].upper()
-    return f"TRK-{unique}"
+    """Return a human-readable tracking ID like TRK-A1B2C3D4."""
+    return f"TRK-{uuid.uuid4().hex[:8].upper()}"
 
-def save_uploaded_image(file) -> str | None:
+def save_uploaded_image(file) -> str:
     """
-    Save an uploaded image file to the uploads folder.
-    Returns the relative path (e.g. 'uploads/abc.jpg') or None.
+    Save an uploaded image to the uploads folder.
+    Returns relative path like 'uploads/abc.jpg', or None if invalid.
     """
     if file and file.filename and allowed_file(file.filename):
         filename = secure_filename(f"{uuid.uuid4().hex[:8]}_{file.filename}")
@@ -196,84 +155,71 @@ def save_uploaded_image(file) -> str | None:
         return f"uploads/{filename}"
     return None
 
+def get_depots() -> dict:
+    """Load depot info from MongoDB into a dict keyed by phone number."""
+    return {d["phone"]: d for d in depots_collection.find()}
+
 def luggage_could_be_at_depot(stops: list, src: str, dst: str, depot_stop: str) -> bool:
     """
-    Determine whether a passenger's lost luggage could have ended up
-    at a given depot stop.
+    Check if a lost item could have reached the depot.
 
-    Logic:
-      After a passenger alights at 'dst', the luggage remains on the bus
-      and travels to subsequent stops.  So the depot must be AFTER 'dst'
-      in the direction of travel.
+    When a passenger gets off at 'dst', their luggage stays on the bus
+    and travels to later stops. So the depot must come AFTER 'dst'.
 
-    Example (Chennai → Coimbatore direction):
-      src=Chennai, dst=Salem → luggage could be at Erode or Coimbatore.
+    Example: src=Chennai, dst=Salem → depot could be Erode or Coimbatore.
     """
     try:
         i = stops.index(src)
         j = stops.index(dst)
         k = stops.index(depot_stop)
-        if i < j:            # Forward direction
-            return k > j
-        elif i > j:          # Reverse direction
-            return k < j
+        if i < j:
+            return k > j    # Forward journey: depot is past destination
+        elif i > j:
+            return k < j    # Reverse journey: depot is before destination
         else:
-            return False     # Same stop — invalid journey
+            return False    # Same stop — invalid
     except ValueError:
-        return False         # Stop not found in route
+        return False        # Stop not in this route
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# SECTION 4 — Matching Engine (Unified Scoring)
+# SECTION 4 — Matching Engine
 # ──────────────────────────────────────────────────────────────────────────────
 
-def find_matches_for_depot(depot_phone: str, found_report: dict) -> list[dict]:
+def compute_and_save_matches(found_report: dict, depot_stop: str) -> int:
     """
-    Find all lost reports that are potential matches for a found item.
+    Run AI matching for a found report against ALL pending lost reports.
+    Save each qualifying match to the 'matches' collection (upsert — no duplicates).
 
-    For each candidate lost report, computes:
-      - text_score  : SBERT cosine similarity of descriptions
-      - image_score : CLIP cosine similarity of images (0 if no images)
-      - route_score : 1.0 if route logic passes, else 0.0
-      - final_score : 0.5*text + 0.3*image + 0.2*route
-
-    Returns a list of dicts:
-      { ...lost_report_fields..., "score": {text, image, route, final, is_match} }
-    sorted by final_score descending.
+    Returns the count of new matches saved.
     """
-    depots = get_depots()
-    depot  = depots.get(depot_phone)
-    if not depot:
-        return []
-
-    route = get_route_by_id(found_report.get("route_id", ""))
+    found_id  = found_report["found_id"]
+    route     = get_route_by_id(found_report.get("route_id", ""))
     if not route:
-        return []
+        return 0
 
-    depot_stop = depot["stop"]
-    stops      = get_stop_names(route)
+    stops = get_stop_names(route)
 
-    # Precompute found-item image embedding once (reused for all candidates)
-    found_img_path = None
+    # Pre-compute the found item's image embedding (cached in MongoDB by ImageSimilarity)
+    found_img_full = None
     if found_report.get("image_path"):
-        found_img_path = os.path.join("static", found_report["image_path"])
+        found_img_full = os.path.join("static", found_report["image_path"])
 
-    results = []
+    new_matches = 0
 
-    for lost in get_lost_reports():
-        # ── Filter: must be same route and same date ──────────────────────────
-        if lost.get("route_id") != found_report.get("route_id"):
-            continue
-        if lost.get("date") != found_report.get("date"):
-            continue
+    # Only consider lost reports that are still pending (not already resolved)
+    pending_lost = lost_collection.find({
+        "route_id": found_report.get("route_id"),
+        "date":     found_report.get("date"),
+        "status":   {"$ne": "resolved"}
+    })
 
-        # ── Filter: route logic — depot must be after passenger's destination ─
-        route_ok = luggage_could_be_at_depot(
+    for lost in pending_lost:
+        # ── Hard filter: route logic ──────────────────────────────────────────
+        if not luggage_could_be_at_depot(
             stops, lost.get("source", ""), lost.get("destination", ""), depot_stop
-        )
-        route_score = 1.0 if route_ok else 0.0
-        if not route_ok:
-            continue   # Skip immediately — route mismatch is a hard filter
+        ):
+            continue
 
         # ── Text similarity ────────────────────────────────────────────────────
         text_score = text_sim.similarity(
@@ -283,38 +229,116 @@ def find_matches_for_depot(depot_phone: str, found_report: dict) -> list[dict]:
 
         # ── Image similarity (optional) ────────────────────────────────────────
         image_score = 0.0
-        if found_img_path and lost.get("image_path"):
-            lost_img_path = os.path.join("static", lost["image_path"])
-            image_score = image_sim.similarity(found_img_path, lost_img_path)
+        if found_img_full and lost.get("image_path"):
+            image_score = image_sim.similarity(
+                found_img_full,
+                os.path.join("static", lost["image_path"])
+            )
 
-        # ── Compute unified score ──────────────────────────────────────────────
-        score = UnifiedScorer.compute(text_score, image_score, route_score)
+        # ── Unified score ─────────────────────────────────────────────────────
+        score = UnifiedScorer.compute(text_score, image_score, route_score=1.0)
 
-        if score["is_match"]:
-            lost_with_score = dict(lost)           # copy the lost report
-            lost_with_score["score"] = score       # attach score breakdown
-            results.append(lost_with_score)
+        if not score["is_match"]:
+            continue
 
-    # Sort best matches first
-    results.sort(key=lambda x: x["score"]["final"], reverse=True)
-    return results
+        # ── Upsert into matches collection ────────────────────────────────────
+        # Use (found_id + request_id) as the unique key — prevents duplicates
+        # even if matching runs multiple times for the same pair.
+        matches_collection.update_one(
+            {
+                "found_id":   found_id,
+                "request_id": lost["request_id"]
+            },
+            {
+                "$setOnInsert": {
+                    "found_id":    found_id,
+                    "request_id":  lost["request_id"],
+                    "depot_phone": found_report["depot_phone"],
+                    "depot_name":  found_report["depot_name"],
+                    "score":       score,
+                    "status":      "pending",   # pending → resolved
+                    "created_at":  datetime.now().isoformat()
+                }
+            },
+            upsert=True
+        )
+        new_matches += 1
+
+    return new_matches
+
+
+def get_matches_for_depot(depot_phone: str) -> list:
+    """
+    Load all non-resolved matches for this depot from MongoDB.
+    Enriches each match with the full lost_report and found_report data.
+    Groups them by found_id for display.
+    """
+    # Fetch only pending matches belonging to this depot
+    raw_matches = list(matches_collection.find({
+        "depot_phone": depot_phone,
+        "status":      {"$ne": "resolved"}
+    }).sort("created_at", -1))
+
+    if not raw_matches:
+        return []
+
+    # Collect all unique found_ids and request_ids for batch fetching
+    found_ids   = list({m["found_id"]   for m in raw_matches})
+    request_ids = list({m["request_id"] for m in raw_matches})
+
+    # Batch fetch from DB (much faster than one query per match)
+    found_map = {
+        f["found_id"]: f
+        for f in found_collection.find({"found_id": {"$in": found_ids}})
+    }
+    lost_map = {
+        l["request_id"]: l
+        for l in lost_collection.find({"request_id": {"$in": request_ids}})
+    }
+
+    # Group matches by found_id
+    groups = {}
+    for match in raw_matches:
+        fid  = match["found_id"]
+        rid  = match["request_id"]
+        lost = lost_map.get(rid)
+        if not lost:
+            continue   # Lost report deleted — skip
+
+        # Attach score and match_id to the lost report dict for the template
+        enriched_lost = dict(lost)
+        enriched_lost["score"]    = match["score"]
+        enriched_lost["match_id"] = str(match["_id"])
+
+        if fid not in groups:
+            groups[fid] = {
+                "found_report": found_map.get(fid, {}),
+                "matches":      []
+            }
+        groups[fid]["matches"].append(enriched_lost)
+
+    # Sort each group's matches by score descending
+    result = list(groups.values())
+    for g in result:
+        g["matches"].sort(key=lambda x: x["score"]["final"], reverse=True)
+
+    return result
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# SECTION 5 — Flask Routes (Passenger-facing)
+# SECTION 5 — Passenger Routes
 # ──────────────────────────────────────────────────────────────────────────────
 
 @app.route('/')
 def index():
-    """Passenger homepage — lost luggage report form + Leaflet map."""
-    # Pop the tracking ID so the success card only shows once after submission
+    """Passenger homepage: report form + Leaflet map."""
     last_tracking_id = session.pop('last_tracking_id', None)
     return render_template('index.html', routes=ROUTES, last_tracking_id=last_tracking_id)
 
 
 @app.route('/lost', methods=['POST'])
 def submit_lost():
-    """Handle lost luggage report submission from passengers."""
+    """Accept a lost luggage report from a passenger."""
     route_id    = request.form.get('route_id')
     date        = request.form.get('date')
     source      = request.form.get('source')
@@ -323,7 +347,6 @@ def submit_lost():
     phone       = request.form.get('phone')
     name        = request.form.get('name')
 
-    # Basic validation
     if not all([route_id, date, source, destination, description, phone, name]):
         flash('Please fill in all required fields.', 'error')
         return redirect(url_for('index'))
@@ -338,25 +361,24 @@ def submit_lost():
         flash('Invalid source or destination for selected route.', 'error')
         return redirect(url_for('index'))
 
-    # Generate unique tracking ID (human-readable)
     tracking_id = generate_tracking_id()
+    request_id  = uuid.uuid4().hex   # Internal unique key for DB relations
 
-    # Build and save report
     report = {
-        "tracking_id":  tracking_id,                  # NEW: TRK-XXXXXXXX
-        "id":           str(uuid.uuid4())[:8],
-        "route_id":     route_id,
-        "route_name":   route["name"],
-        "date":         date,
-        "source":       source,
-        "destination":  destination,
-        "description":  description,
-        "phone":        phone,
-        "name":         name,
-        "status":       "pending",                    # NEW: tracking status
-        "matched_depot": None,                         # NEW: filled when matched
-        "matched_at":   None,                          # NEW: filled when matched
-        "created_at":   datetime.now().isoformat()
+        "request_id":    request_id,    # Unique internal ID (used in matches)
+        "tracking_id":   tracking_id,   # Human-readable ID shown to passenger
+        "route_id":      route_id,
+        "route_name":    route["name"],
+        "date":          date,
+        "source":        source,
+        "destination":   destination,
+        "description":   description,
+        "phone":         phone,
+        "name":          name,
+        "status":        "pending",     # pending | resolved
+        "matched_depot": None,
+        "matched_at":    None,
+        "created_at":    datetime.now().isoformat()
     }
 
     lost_collection.insert_one(report)
@@ -366,34 +388,31 @@ def submit_lost():
         f'save it to check your claim status.',
         'success'
     )
-    # Pass tracking_id in session so index.html can display it prominently
     session['last_tracking_id'] = tracking_id
     return redirect(url_for('index'))
 
 
 @app.route('/status')
 def status_page():
-    """Passenger 'Check Status' page — enter tracking ID to see status."""
+    """Passenger self-service status check page."""
     return render_template('status.html')
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# SECTION 6 — Flask Routes (Depot Staff)
+# SECTION 6 — Depot Staff Routes
 # ──────────────────────────────────────────────────────────────────────────────
 
 @app.route('/depot-login')
 def depot_login_page():
-    """Depot login page."""
     return render_template('depot_login.html', depots=get_depots())
 
 
 @app.route('/depot/login', methods=['POST'])
 def depot_login():
-    """Handle depot staff login."""
     phone    = request.form.get('phone')
     password = request.form.get('password')
+    depots   = get_depots()
 
-    depots = get_depots()
     if phone in depots and depots[phone]["password"] == password:
         session['depot_phone'] = phone
         session['depot_name']  = depots[phone]["name"]
@@ -406,7 +425,6 @@ def depot_login():
 
 @app.route('/depot/logout')
 def depot_logout():
-    """Log out depot staff."""
     session.pop('depot_phone', None)
     session.pop('depot_name',  None)
     flash('Logged out successfully.', 'success')
@@ -415,7 +433,7 @@ def depot_logout():
 
 @app.route('/depot')
 def depot_dashboard():
-    """Depot dashboard — found item form + matched lost reports."""
+    """Depot dashboard: register found items + view AI matches from DB."""
     if 'depot_phone' not in session:
         flash('Please login to access depot dashboard.', 'error')
         return redirect(url_for('depot_login_page'))
@@ -425,22 +443,17 @@ def depot_dashboard():
     depot       = depots.get(depot_phone)
 
     if not depot:
-        session.pop('depot_phone', None)
+        session.clear()
         flash('Invalid depot session.', 'error')
         return redirect(url_for('depot_login_page'))
 
     depot_routes = [r for r in ROUTES if r["id"] in depot["routes"]]
-    depot_found  = list(found_collection.find({"depot_phone": depot_phone}).sort("created_at", -1))
+    depot_found  = list(found_collection.find(
+        {"depot_phone": depot_phone}
+    ).sort("created_at", -1))
 
-    # Run matching for every found report this depot has logged
-    all_matches = []
-    for found in depot_found:
-        matches = find_matches_for_depot(depot_phone, found)
-        if matches:
-            all_matches.append({
-                "found_report": found,
-                "matches":      matches    # each match has a .score dict
-            })
+    # Load matches from DB (not recomputed — already populated at submit_found time)
+    all_matches = get_matches_for_depot(depot_phone)
 
     return render_template(
         'depot.html',
@@ -449,13 +462,13 @@ def depot_dashboard():
         routes=depot_routes,
         found_reports=depot_found,
         all_matches=all_matches,
-        clip_available=image_sim.available    # show/hide image score badge
+        clip_available=image_sim.available
     )
 
 
 @app.route('/depot/found', methods=['POST'])
 def submit_found():
-    """Handle found luggage report from depot staff."""
+    """Accept a found luggage report from depot staff and run AI matching."""
     if 'depot_phone' not in session:
         flash('Please login to submit found reports.', 'error')
         return redirect(url_for('depot_login_page'))
@@ -482,18 +495,20 @@ def submit_found():
 
     route = get_route_by_id(route_id)
 
-    # Handle image upload
+    # Handle optional image upload
     image_path = None
     if 'image' in request.files:
         image_path = save_uploaded_image(request.files['image'])
 
-    # Pre-compute CLIP embedding for uploaded image (stored in MongoDB for reuse)
+    # Pre-compute CLIP embedding now so matching is fast later
     if image_path and image_sim.available:
-        full_path = os.path.join("static", image_path)
-        image_sim.embed(full_path)   # result auto-cached in MongoDB
+        image_sim.embed(os.path.join("static", image_path))
+
+    found_id = uuid.uuid4().hex   # Unique internal ID for this found report
 
     report = {
-        "id":          str(uuid.uuid4())[:8],
+        "found_id":    found_id,          # Unique internal ID (used in matches)
+        "id":          found_id[:8],      # Short display ID
         "depot_phone": depot_phone,
         "depot_name":  depot["name"],
         "route_id":    route_id,
@@ -507,11 +522,13 @@ def submit_found():
 
     found_collection.insert_one(report)
 
-    matches = find_matches_for_depot(depot_phone, report)
-    if matches:
-        flash(f'Found report submitted! {len(matches)} potential match(es) found!', 'success')
+    # Run AI matching and SAVE results to matches collection
+    n = compute_and_save_matches(report, depot["stop"])
+
+    if n > 0:
+        flash(f'Found report submitted! {n} potential match(es) found!', 'success')
     else:
-        flash('Found report submitted. No matches yet — check back as more reports come in.', 'success')
+        flash('Found report submitted. No matches yet.', 'success')
 
     return redirect(url_for('depot_dashboard'))
 
@@ -523,13 +540,8 @@ def submit_found():
 @app.route('/api/status/<tracking_id>')
 def api_status(tracking_id: str):
     """
-    JSON endpoint: return status of a lost report by tracking ID.
-
-    Response:
-      { found: true, tracking_id, status, name, route_name,
-        date, description, matched_depot, matched_at }
-      or
-      { found: false, message: "..." }
+    Return JSON status of a lost report by tracking ID.
+    Used by the passenger 'Check Status' page.
     """
     tracking_id = tracking_id.strip().upper()
     report = lost_collection.find_one({"tracking_id": tracking_id})
@@ -552,21 +564,13 @@ def api_status(tracking_id: str):
 
 @app.route('/api/routes')
 def api_routes():
-    """
-    JSON endpoint: return all routes with stop coordinates.
-    Used by Leaflet.js map on the frontend.
-
-    Response: list of route objects, each with id, name, color, stops[{name,lat,lon}]
-    """
+    """Return all routes with stop coordinates for the Leaflet map."""
     return jsonify(ROUTES)
 
 
 @app.route('/api/stops/<route_id>')
 def get_stops(route_id: str):
-    """
-    JSON endpoint: return stop NAMES for a route (used by form dropdowns).
-    Kept for backward-compatibility.
-    """
+    """Return stop names for a route (backward-compatible dropdown API)."""
     route = get_route_by_id(route_id)
     if route:
         return jsonify({"stops": get_stop_names(route)})
@@ -576,25 +580,53 @@ def get_stops(route_id: str):
 @app.route('/api/match/resolve', methods=['POST'])
 def resolve_match():
     """
-    Mark a lost report as 'resolved' and record which depot found it.
-    Called by depot staff when they confirm a passenger has collected their item.
+    Mark a specific match as resolved.
+    Updates BOTH the matches collection AND the lost_reports collection.
 
-    POST body (form or JSON):
-      { tracking_id: "TRK-XXXX", depot_phone: "9000000001" }
+    Expected JSON body:
+      { "match_id": "<MongoDB ObjectId hex>", "request_id": "<uuid hex>" }
+
+    Why both IDs?
+      - match_id   → mark THIS specific found↔lost pairing as resolved
+      - request_id → mark the lost report itself as resolved (stops future matches)
     """
     if 'depot_phone' not in session:
         return jsonify({"success": False, "message": "Not authenticated"}), 401
 
-    data = request.get_json(silent=True) or request.form
-    tracking_id  = (data.get('tracking_id') or '').strip().upper()
-    depot_phone  = session['depot_phone']
-    depot_name   = session.get('depot_name', '')
+    data       = request.get_json(silent=True) or {}
+    match_id   = data.get('match_id', '').strip()
+    request_id = data.get('request_id', '').strip()
+    depot_name = session.get('depot_name', '')
 
-    if not tracking_id:
-        return jsonify({"success": False, "message": "tracking_id required"}), 400
+    # Validate required fields
+    if not match_id or not request_id:
+        return jsonify({
+            "success": False,
+            "message": "Both match_id and request_id are required."
+        }), 400
 
-    result = lost_collection.update_one(
-        {"tracking_id": tracking_id, "status": {"$ne": "resolved"}},
+    from bson import ObjectId
+
+    # ── Step 1: Mark this match as resolved ───────────────────────────────────
+    match_result = matches_collection.update_one(
+        {"_id": ObjectId(match_id), "status": {"$ne": "resolved"}},
+        {"$set": {
+            "status":      "resolved",
+            "resolved_at": datetime.now().isoformat(),
+            "resolved_by": depot_name
+        }}
+    )
+
+    if match_result.modified_count == 0:
+        return jsonify({
+            "success": False,
+            "message": "Match not found or already resolved."
+        }), 404
+
+    # ── Step 2: Mark the lost report as resolved ──────────────────────────────
+    # This prevents it from matching other found reports in the future.
+    lost_collection.update_one(
+        {"request_id": request_id},
         {"$set": {
             "status":        "resolved",
             "matched_depot": depot_name,
@@ -602,10 +634,21 @@ def resolve_match():
         }}
     )
 
-    if result.modified_count == 0:
-        return jsonify({"success": False, "message": "Report not found or already resolved"}), 404
+    # ── Step 3: Cancel all OTHER pending matches for this lost report ─────────
+    # Once resolved, there's no point showing the same lost item under
+    # other found reports in the depot dashboard.
+    matches_collection.update_many(
+        {
+            "request_id": request_id,
+            "status":     "pending"
+        },
+        {"$set": {"status": "cancelled"}}
+    )
 
-    return jsonify({"success": True, "message": f"Report {tracking_id} marked as resolved."})
+    return jsonify({
+        "success": True,
+        "message": "Match resolved successfully."
+    })
 
 
 # ──────────────────────────────────────────────────────────────────────────────
