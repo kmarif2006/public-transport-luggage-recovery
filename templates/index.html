@@ -1,20 +1,62 @@
 {% extends "base.html" %}
 
-{% block title %}Report Lost Luggage / தொலைந்த உடைமை அறிக்கை - TN Bus Lost & Found{% endblock %}
+{% block title %}Report Lost Luggage / தொலைந்த உடைமை அறிக்கை - TN Bus Lost &amp; Found{% endblock %}
 
 {% block content %}
-<div class="max-w-[1200px] mx-auto">
+<div class="max-w-[1200px] mx-auto space-y-8">
+
+    <!-- ═══════════════════════════════════════════════════════════
+         Tracking ID success card (shown after form submission)
+    ═══════════════════════════════════════════════════════════ -->
+    {% if last_tracking_id %}
+    <div id="tracking-card"
+         class="card-professional p-6 border-l-4 border-green-500 bg-green-50 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-start gap-4">
+            <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-sm font-bold text-slate-700">Your report has been submitted successfully!</p>
+                <p class="text-xs text-slate-500 mt-1">Use your Tracking ID below to check the status of your claim anytime.</p>
+                <div class="mt-3 inline-flex items-center gap-3 bg-white border border-green-200 rounded-lg px-4 py-2">
+                    <span class="text-xs text-slate-500 font-bold uppercase tracking-wider">Tracking ID</span>
+                    <span id="tracking-id-value"
+                          class="mono text-lg font-bold text-green-700 tracking-widest">
+                        {{ last_tracking_id }}
+                    </span>
+                    <button onclick="copyTrackingId()"
+                            class="text-slate-400 hover:text-green-600 transition-colors" title="Copy">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <a href="{{ url_for('status_page') }}?id={{ last_tracking_id }}"
+           class="btn-gov-primary text-xs uppercase tracking-wide flex-shrink-0">
+            Track this Report →
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- ═══════════════════════════════════════════════════════════
+         Main grid: Form (left) + Map & Info (right)
+    ═══════════════════════════════════════════════════════════ -->
     <div class="grid lg:grid-cols-12 gap-8">
 
-        <!-- Left: Lost Luggage Report Form -->
-        <div class="lg:col-span-8">
+        <!-- LEFT: Lost Luggage Report Form -->
+        <div class="lg:col-span-7">
             <div class="card-professional overflow-hidden">
                 <div class="bg-tn-blue p-6 text-white text-center">
-                    <h2 class="text-2xl font-heading font-bold uppercase tracking-wide">Report Lost Luggage</h2>
+                    <h1 class="text-2xl font-heading font-bold uppercase tracking-wide">Report Lost Luggage</h1>
                     <p class="font-tamil text-sm mt-1">தொலைந்த உடைமை அறிக்கை</p>
                 </div>
 
-                <form action="{{ url_for('submit_lost') }}" method="POST" class="p-8 space-y-6">
+                <form action="{{ url_for('submit_lost') }}" method="POST" class="p-8 space-y-6" id="lost-form">
                     <div class="grid md:grid-cols-2 gap-6">
                         <!-- Name -->
                         <div class="space-y-1.5">
@@ -22,44 +64,44 @@
                                 Your Name / பயணியர் பெயர் <span class="text-tn-red">*</span>
                             </label>
                             <input type="text" name="name" required
-                                class="w-full input-gov font-medium input-focus h-[40px] px-3 border border-slate-300 rounded-md"
-                                placeholder="Enter full name">
+                                   class="w-full input-gov font-medium input-focus h-[40px] px-3 border border-slate-300 rounded-md"
+                                   placeholder="Enter full name">
                         </div>
-
                         <!-- Phone -->
                         <div class="space-y-1.5">
                             <label class="block text-sm font-bold text-slate-700">
                                 Phone Number / கைபேசி எண் <span class="text-tn-red">*</span>
                             </label>
                             <input type="tel" name="phone" required pattern="[0-9]{10}"
-                                class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-bold mono input-focus"
-                                placeholder="10-digit mobile number">
+                                   class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-bold mono input-focus"
+                                   placeholder="10-digit mobile number">
                         </div>
                     </div>
 
                     <div class="grid md:grid-cols-2 gap-6">
-                        <!-- Route Selection -->
+                        <!-- Route -->
                         <div class="space-y-1.5">
                             <label class="block text-sm font-bold text-slate-700">
                                 Bus Route / பேருந்து வழித்தடம் <span class="text-tn-red">*</span>
                             </label>
                             <select name="route_id" id="route_select" required
-                                class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
+                                    class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
                                 <option value="">Select your route</option>
                                 {% for route in routes %}
-                                <option value="{{ route.id }}" data-stops="{{ route.stops | join(',') }}">{{ route.name
-                                    }}</option>
+                                <option value="{{ route.id }}"
+                                        data-stops="{{ route.stops | map(attribute='name') | join(',') }}">
+                                    {{ route.name }}
+                                </option>
                                 {% endfor %}
                             </select>
                         </div>
-
                         <!-- Date -->
                         <div class="space-y-1.5">
                             <label class="block text-sm font-bold text-slate-700">
                                 Travel Date / பயணத் தேதி <span class="text-tn-red">*</span>
                             </label>
-                            <input type="date" name="date" required
-                                class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium input-focus">
+                            <input type="date" name="date" id="date_input" required
+                                   class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium input-focus">
                         </div>
                     </div>
 
@@ -70,7 +112,7 @@
                                 Boarded At / ஏறிய இடம் <span class="text-tn-red">*</span>
                             </label>
                             <select name="source" id="source_select" required
-                                class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
+                                    class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
                                 <option value="">Select stop</option>
                             </select>
                         </div>
@@ -79,7 +121,7 @@
                                 Alighted At / இறங்கிய இடம் <span class="text-tn-red">*</span>
                             </label>
                             <select name="destination" id="dest_select" required
-                                class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
+                                    class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
                                 <option value="">Select stop</option>
                             </select>
                         </div>
@@ -91,15 +133,16 @@
                             Luggage Description / உடைமை விவரம் <span class="text-tn-red">*</span>
                         </label>
                         <textarea name="description" required rows="3"
-                            class="w-full p-4 border border-slate-300 rounded-md font-medium input-focus resize-none"
-                            placeholder="Describe your lost item (color, size, contents, etc.)"></textarea>
-                        <p class="text-[11px] text-slate-500 font-medium italic">Please provide specific details to help
-                            with identification.</p>
+                                  class="w-full p-4 border border-slate-300 rounded-md font-medium input-focus resize-none"
+                                  placeholder="Describe your lost item in detail — color, size, brand, contents…"></textarea>
+                        <p class="text-[11px] text-slate-500 font-medium italic">
+                            More detail = better AI match accuracy.
+                        </p>
                     </div>
 
-                    <div class="pt-4">
-                        <button type="submit"
-                            class="w-full btn-gov-primary text-sm uppercase tracking-widest shadow-md">
+                    <div class="pt-2">
+                        <button type="submit" id="submit-btn"
+                                class="w-full btn-gov-primary text-sm uppercase tracking-widest shadow-md">
                             Submit Lost Report / அறிக்கையைச் சமர்ப்பிக்கவும்
                         </button>
                     </div>
@@ -107,48 +150,56 @@
             </div>
         </div>
 
-        <!-- Right: Information & Quick Links -->
-        <div class="lg:col-span-4 space-y-8">
+        <!-- RIGHT: Map + Info -->
+        <div class="lg:col-span-5 space-y-6">
+
+            <!-- Interactive Map -->
+            <div class="card-professional overflow-hidden">
+                <div class="bg-slate-50 p-4 border-b border-slate-200 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Bus Route Map</h3>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Click a stop to auto-select it in the form</p>
+                    </div>
+                    <svg class="w-5 h-5 text-tn-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                    </svg>
+                </div>
+                <!-- The map renders inside this div -->
+                <div id="route-map" class="tn-map" style="height:360px;"></div>
+            </div>
+
             <!-- Guidelines -->
             <div class="card-professional p-6 border-l-4 border-tn-blue shadow-sm">
                 <h3 class="font-heading font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
                     <svg class="w-5 h-5 text-tn-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    Guidelines / வழிகாட்டுதல்
+                    How It Works
                 </h3>
                 <div class="space-y-4">
+                    {% for step, text in [
+                        ('1', 'Submit this form with your travel details. You will receive a Tracking ID.'),
+                        ('2', 'Our AI system matches your description against depot found-item reports.'),
+                        ('3', 'If matched, the depot contacts you to collect your belongings.')
+                    ] %}
                     <div class="flex gap-4">
-                        <div
-                            class="h-6 w-6 rounded-full bg-tn-blue text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
-                            1</div>
-                        <p class="text-sm text-slate-600 font-medium">Report your lost item immediately with exact
-                            travel details.</p>
+                        <div class="h-6 w-6 rounded-full bg-tn-blue text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            {{ step }}
+                        </div>
+                        <p class="text-sm text-slate-600 font-medium">{{ text }}</p>
                     </div>
-                    <div class="flex gap-4">
-                        <div
-                            class="h-6 w-6 rounded-full bg-tn-blue text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
-                            2</div>
-                        <p class="text-sm text-slate-600 font-medium">Depot officers will check the bus at the end of
-                            the shift.</p>
-                    </div>
-                    <div class="flex gap-4">
-                        <div
-                            class="h-6 w-6 rounded-full bg-tn-blue text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
-                            3</div>
-                        <p class="text-sm text-slate-600 font-medium">If matched, you will be contacted for collection
-                            from the depot.</p>
-                    </div>
+                    {% endfor %}
                 </div>
             </div>
 
-            <!-- Depot Login Quick Link -->
-            <div class="card-professional p-6 bg-slate-50 border-tn-blue/10">
-                <p class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-4">Staff Section</p>
-                <a href="{{ url_for('depot_login_page') }}"
-                    class="btn-gov-secondary text-xs uppercase tracking-widest w-full">
-                    Depot Access Portal
+            <!-- Check Status Quick Link -->
+            <div class="card-professional p-5 bg-slate-50">
+                <p class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-3">Already Reported?</p>
+                <a href="{{ url_for('status_page') }}"
+                   class="btn-gov-secondary text-xs uppercase tracking-widest w-full">
+                    → Check Claim Status
                 </a>
             </div>
         </div>
@@ -158,34 +209,79 @@
 
 {% block scripts %}
 <script>
-    // Dynamic stop population based on route selection
-    const routeSelect = document.getElementById('route_select');
-    const sourceSelect = document.getElementById('source_select');
-    const destSelect = document.getElementById('dest_select');
+// ═══════════════════════════════════════════════════════
+// Stop dropdown population on route change
+// ═══════════════════════════════════════════════════════
+const routeSelect  = document.getElementById('route_select');
+const sourceSelect = document.getElementById('source_select');
+const destSelect   = document.getElementById('dest_select');
+const dateInput    = document.getElementById('date_input');
 
-    function populateStops(stops) {
-        const stopArray = stops ? stops.split(',') : [];
+// Cap date at today
+dateInput.max = new Date().toISOString().split('T')[0];
 
-        sourceSelect.innerHTML = '<option value="">Select stop / இடம்</option>';
-        destSelect.innerHTML = '<option value="">Select stop / இடம்</option>';
-
-        stopArray.forEach(stop => {
-            const option = `<option value="${stop}">${stop}</option>`;
-            sourceSelect.innerHTML += option;
-            destSelect.innerHTML += option;
-        });
-    }
-
-    routeSelect.addEventListener('change', function () {
-        const selected = this.options[this.selectedIndex];
-        const stops = selected.getAttribute('data-stops') || '';
-        populateStops(stops);
+function populateStops(stops) {
+    const stopArray = stops ? stops.split(',') : [];
+    const blank = '<option value="">Select stop / இடம்</option>';
+    sourceSelect.innerHTML = blank;
+    destSelect.innerHTML   = blank;
+    stopArray.forEach(stop => {
+        const opt = `<option value="${stop}">${stop}</option>`;
+        sourceSelect.innerHTML += opt;
+        destSelect.innerHTML   += opt;
     });
+}
 
-    // Set max date to today
-    const dateInput = document.querySelector('input[type="date"]');
-    if (dateInput) {
-        dateInput.max = new Date().toISOString().split('T')[0];
+routeSelect.addEventListener('change', function () {
+    const stops = this.options[this.selectedIndex].getAttribute('data-stops') || '';
+    populateStops(stops);
+    // Highlight the selected route on the map
+    if (window._mapRoutes && window._leafletMap) {
+        highlightRoute(window._leafletMap, window._mapRoutes, this.value);
     }
+});
+
+// ═══════════════════════════════════════════════════════
+// Copy Tracking ID to clipboard
+// ═══════════════════════════════════════════════════════
+function copyTrackingId() {
+    const val = document.getElementById('tracking-id-value');
+    if (!val) return;
+    navigator.clipboard.writeText(val.textContent.trim())
+        .then(() => {
+            val.style.color = '#16a34a';
+            setTimeout(() => val.style.color = '', 1500);
+        });
+}
+
+// ═══════════════════════════════════════════════════════
+// Initialise Leaflet map (via map.js)
+// ═══════════════════════════════════════════════════════
+const _map = initMap('route-map');
+window._leafletMap = _map;
+
+// Allow popup "Select this stop" button to update the form
+window._selectStop = function(stopName) {
+    // Try to set source first, then destination if source already set
+    if (!sourceSelect.value) {
+        // Just set source if empty
+        for (let opt of sourceSelect.options) {
+            if (opt.value === stopName) { opt.selected = true; break; }
+        }
+    } else if (!destSelect.value) {
+        for (let opt of destSelect.options) {
+            if (opt.value === stopName) { opt.selected = true; break; }
+        }
+    }
+    _map.closePopup();
+};
+
+// Load routes and keep a reference for highlight logic
+fetch('/api/routes')
+    .then(r => r.json())
+    .then(routes => {
+        window._mapRoutes = routes;
+        renderRoutes(_map, (stopName) => window._selectStop(stopName));
+    });
 </script>
 {% endblock %}

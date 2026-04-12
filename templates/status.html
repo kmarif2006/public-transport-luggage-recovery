@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Check Claim Status — TN Bus Lost &amp; Found{% endblock %}
+
+{% block content %}
+<div class="max-w-[800px] mx-auto space-y-8">
+
+    <!-- Page Header -->
+    <div class="text-center space-y-2">
+        <h1 class="text-3xl font-heading font-bold text-slate-800 uppercase tracking-wide">
+            Track Your Claim
+        </h1>
+        <p class="text-slate-500 font-medium">Enter the Tracking ID you received when you submitted your lost report.</p>
+        <p class="font-tamil text-sm text-tn-gold font-bold">உங்கள் கோரிக்கையை கண்காணிக்கவும்</p>
+    </div>
+
+    <!-- Lookup Form -->
+    <div class="card-professional overflow-hidden">
+        <div class="bg-tn-blue p-5 text-white flex items-center gap-3">
+            <svg class="w-6 h-6 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <h2 class="text-lg font-heading font-bold uppercase tracking-wide">Enter Tracking ID</h2>
+        </div>
+
+        <div class="p-8">
+            <div class="flex gap-3">
+                <input type="text" id="tracking-input"
+                       placeholder="e.g. TRK-A1B2C3D4"
+                       class="flex-grow h-[48px] px-4 border border-slate-300 rounded-md
+                              font-bold mono text-lg uppercase input-focus tracking-widest
+                              placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400"
+                       maxlength="12" autocomplete="off" spellcheck="false">
+                <button onclick="checkStatus()"
+                        id="check-btn"
+                        class="btn-gov-primary px-6 text-sm uppercase tracking-widest flex-shrink-0">
+                    Check Status
+                </button>
+            </div>
+            <p class="text-xs text-slate-400 mt-2 font-medium">
+                Format: TRK- followed by 8 characters (e.g. TRK-3F9A1C8B)
+            </p>
+        </div>
+    </div>
+
+    <!-- Result Panel (hidden until lookup) -->
+    <div id="result-panel" class="hidden space-y-6">
+
+        <!-- Loading state -->
+        <div id="result-loading" class="card-professional p-8 text-center hidden">
+            <div class="flex items-center justify-center gap-3 text-slate-500">
+                <svg class="w-5 h-5 animate-spin text-tn-blue" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <span class="font-medium text-sm">Looking up your tracking ID…</span>
+            </div>
+        </div>
+
+        <!-- Not Found state -->
+        <div id="result-not-found" class="card-professional p-8 text-center border-t-4 border-red-400 hidden">
+            <div class="w-14 h-14 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg class="w-7 h-7 text-tn-red" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </div>
+            <h3 class="text-lg font-bold text-slate-700">Tracking ID Not Found</h3>
+            <p class="text-sm text-slate-400 mt-2">Double-check the ID you received in your confirmation message.</p>
+        </div>
+
+        <!-- Found: Result card -->
+        <div id="result-card" class="card-professional overflow-hidden hidden">
+            <!-- Status bar -->
+            <div id="result-status-bar" class="p-5 text-white flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div id="result-status-icon" class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl"></div>
+                    <div>
+                        <p class="text-xs uppercase tracking-widest opacity-80 font-bold">Claim Status</p>
+                        <p id="result-status-label" class="text-xl font-heading font-bold uppercase"></p>
+                    </div>
+                </div>
+                <div id="result-tracking-badge"
+                     class="mono font-bold text-sm bg-white/20 px-4 py-2 rounded-full tracking-widest"></div>
+            </div>
+
+            <!-- Details grid -->
+            <div class="p-6 grid sm:grid-cols-2 gap-6">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Passenger Name</p>
+                    <p id="result-name" class="font-bold text-slate-800 text-sm"></p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Travel Date</p>
+                    <p id="result-date" class="font-bold text-slate-800 text-sm mono"></p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Route</p>
+                    <p id="result-route" class="font-bold text-slate-800 text-sm"></p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Report Submitted</p>
+                    <p id="result-submitted" class="font-bold text-slate-800 text-sm mono"></p>
+                </div>
+                <div class="sm:col-span-2">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Item Description</p>
+                    <p id="result-description" class="text-slate-700 text-sm italic border-l-4 border-slate-200 pl-3"></p>
+                </div>
+                <!-- Matched depot info (shown only when matched/resolved) -->
+                <div id="result-depot-row" class="sm:col-span-2 hidden">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Matched Depot</p>
+                    <p id="result-depot" class="font-bold text-green-700 text-sm flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16"/>
+                        </svg>
+                        <span></span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Progress timeline -->
+            <div class="px-6 pb-6">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">Progress</p>
+                <div class="flex items-center gap-0">
+                    <!-- Step 1: Submitted -->
+                    <div class="flex flex-col items-center">
+                        <div id="step1" class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold">1</div>
+                        <p class="text-[9px] font-bold text-slate-500 mt-1 uppercase text-center">Submitted</p>
+                    </div>
+                    <div id="line1" class="flex-1 h-1 bg-slate-200 mx-1"></div>
+                    <!-- Step 2: AI Matching -->
+                    <div class="flex flex-col items-center">
+                        <div id="step2" class="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold">2</div>
+                        <p class="text-[9px] font-bold text-slate-500 mt-1 uppercase text-center">Matching</p>
+                    </div>
+                    <div id="line2" class="flex-1 h-1 bg-slate-200 mx-1"></div>
+                    <!-- Step 3: Resolved -->
+                    <div class="flex flex-col items-center">
+                        <div id="step3" class="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold">3</div>
+                        <p class="text-[9px] font-bold text-slate-500 mt-1 uppercase text-center">Resolved</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tips -->
+        <div id="result-tips" class="card-professional p-5 bg-amber-50 border border-amber-100 hidden">
+            <p class="text-sm font-bold text-amber-800 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                While you wait…
+            </p>
+            <ul class="mt-3 space-y-1.5 text-xs text-amber-700 font-medium">
+                <li>• Depot staff check found items at the end of each shift.</li>
+                <li>• AI matching runs automatically when a new found report is filed.</li>
+                <li>• If matched, the depot will call you directly on your registered number.</li>
+                <li>• You can check this page again anytime using your Tracking ID.</li>
+            </ul>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Pre-fill from URL param (e.g. /status?id=TRK-XXXX)
+window.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (id) {
+        document.getElementById('tracking-input').value = id.toUpperCase();
+        checkStatus();
+    }
+});
+
+// Allow Enter key to trigger check
+document.getElementById('tracking-input').addEventListener('keyup', e => {
+    if (e.key === 'Enter') checkStatus();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main status check function
+// ─────────────────────────────────────────────────────────────────────────────
+function checkStatus() {
+    const raw = document.getElementById('tracking-input').value.trim().toUpperCase();
+    if (!raw) return;
+
+    // Validate format loosely
+    const formatted = raw.startsWith('TRK-') ? raw : 'TRK-' + raw;
+
+    // Show loading
+    show('result-panel');
+    show('result-loading');
+    hide('result-not-found');
+    hide('result-card');
+    hide('result-tips');
+
+    fetch(`/api/status/${formatted}`)
+        .then(r => r.json())
+        .then(data => {
+            hide('result-loading');
+            if (!data.found) {
+                show('result-not-found');
+                return;
+            }
+            renderResult(data, formatted);
+        })
+        .catch(() => {
+            hide('result-loading');
+            show('result-not-found');
+        });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Render the result card
+// ─────────────────────────────────────────────────────────────────────────────
+function renderResult(data, trackingId) {
+    const status = data.status || 'pending';
+
+    // Status bar colors & labels
+    const statusConfig = {
+        pending:  { bg: '#B45309', icon: '🟡', label: 'Pending Review' },
+        matched:  { bg: '#166534', icon: '🟢', label: 'Match Found' },
+        resolved: { bg: '#1E40AF', icon: '✅', label: 'Resolved' }
+    };
+    const cfg = statusConfig[status] || statusConfig.pending;
+
+    // Status bar
+    document.getElementById('result-status-bar').style.background = cfg.bg;
+    document.getElementById('result-status-icon').textContent = cfg.icon;
+    document.getElementById('result-status-label').textContent = cfg.label;
+    document.getElementById('result-tracking-badge').textContent = trackingId;
+
+    // Details
+    setText('result-name',        data.name || '—');
+    setText('result-date',        data.date || '—');
+    setText('result-route',       data.route_name || '—');
+    setText('result-description', data.description || '—');
+    setText('result-submitted',   data.created_at ? data.created_at.slice(0, 16).replace('T', ' ') : '—');
+
+    // Depot row (only if matched or resolved)
+    if (data.matched_depot) {
+        document.getElementById('result-depot').querySelector('span').textContent = data.matched_depot;
+        show('result-depot-row');
+    } else {
+        hide('result-depot-row');
+    }
+
+    // Progress timeline
+    updateTimeline(status);
+
+    show('result-card');
+    show('result-tips');
+}
+
+function updateTimeline(status) {
+    const active = 'bg-tn-blue text-white';
+    const done   = 'bg-green-500 text-white';
+    const idle   = 'bg-slate-200 text-slate-500';
+
+    const s1 = document.getElementById('step1');
+    const s2 = document.getElementById('step2');
+    const s3 = document.getElementById('step3');
+    const l1 = document.getElementById('line1');
+    const l2 = document.getElementById('line2');
+
+    // Step 1 always done (report submitted)
+    setClasses(s1, done);
+    l1.style.background = '#22c55e';
+
+    if (status === 'matched') {
+        setClasses(s2, active);
+        l2.style.background = '#E2E8F0';
+        setClasses(s3, idle);
+    } else if (status === 'resolved') {
+        setClasses(s2, done);
+        l2.style.background = '#22c55e';
+        setClasses(s3, done);
+    } else {
+        // pending
+        setClasses(s2, idle);
+        l2.style.background = '#E2E8F0';
+        setClasses(s3, idle);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utility helpers
+// ─────────────────────────────────────────────────────────────────────────────
+function show(id) { document.getElementById(id)?.classList.remove('hidden'); }
+function hide(id) { document.getElementById(id)?.classList.add('hidden'); }
+function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+}
+function setClasses(el, classes) {
+    const all = ['bg-green-500','bg-tn-blue','bg-slate-200','text-white','text-slate-500'];
+    el.classList.remove(...all);
+    classes.split(' ').forEach(c => el.classList.add(c));
+}
+</script>
+{% endblock %}
