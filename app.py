@@ -1,14 +1,3 @@
-"""
-app.py — TN Bus Lost & Found — Smart Recovery Platform
-=======================================================
-Architecture:
-  - lost_reports  : submitted by passengers
-  - found_reports : submitted by depot staff
-  - matches       : persisted links between lost + found (with score + status)
-
-All state is 100% database-driven — nothing is held in memory between requests.
-"""
-
 import os
 import uuid
 import logging
@@ -21,12 +10,8 @@ from flask import (
 from werkzeug.utils import secure_filename
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from similarity import TextSimilarity, ImageSimilarity, UnifiedScorer # Import AI modules
 
-from similarity import TextSimilarity, ImageSimilarity, UnifiedScorer
-
-# ──────────────────────────────────────────────────────────────────────────────
-# SECTION 1 — App Setup & Config
-# ──────────────────────────────────────────────────────────────────────────────
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
@@ -35,7 +20,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'tn-bus-lost-found-dev-key-2026')
 
-# ── MongoDB ───────────────────────────────────────────────────────────────────
+# MongoDB
 MONGO_URI = os.environ.get('MONGO_URI')
 client = MongoClient(MONGO_URI)
 db = client['tn_bus_lost_found']
@@ -45,13 +30,13 @@ found_collection   = db['found_reports']  # Depot found item reports
 matches_collection = db['matches']        # Persisted AI-match links
 depots_collection  = db['depots']         # Depot credentials
 
-# ── AI Models (loaded once at startup) ───────────────────────────────────────
+# AI Models
 logger.info("Initialising AI models…")
 text_sim  = TextSimilarity()
 image_sim = ImageSimilarity(db=db)
 logger.info(f"CLIP available: {image_sim.available}")
 
-# ── File Upload Config ────────────────────────────────────────────────────────
+# File Upload
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -59,9 +44,7 @@ app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024   # 5 MB
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # SECTION 2 — Static Route & Depot Data
-# ──────────────────────────────────────────────────────────────────────────────
 # Stops include lat/lon for the Leaflet map.
 ROUTES = [
     {
@@ -119,11 +102,7 @@ DEPOTS = {
     "9000000005": {"name": "Tirunelveli Depot", "password": "pass123", "stop": "Tirunelveli", "routes": ["md-tn"]},
 }
 
-
-# ──────────────────────────────────────────────────────────────────────────────
 # SECTION 3 — Helper Functions
-# ──────────────────────────────────────────────────────────────────────────────
-
 def get_route_by_id(route_id: str):
     """Return the route dict for a given route ID, or None."""
     for route in ROUTES:
@@ -182,10 +161,7 @@ def luggage_could_be_at_depot(stops: list, src: str, dst: str, depot_stop: str) 
         return False        # Stop not in this route
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # SECTION 4 — Matching Engine
-# ──────────────────────────────────────────────────────────────────────────────
-
 def compute_and_save_matches(found_report: dict, depot_stop: str) -> int:
     """
     Run AI matching for a found report against ALL pending lost reports.
@@ -215,19 +191,19 @@ def compute_and_save_matches(found_report: dict, depot_stop: str) -> int:
     })
 
     for lost in pending_lost:
-        # ── Hard filter: route logic ──────────────────────────────────────────
+        # Hard filter: route logic
         if not luggage_could_be_at_depot(
             stops, lost.get("source", ""), lost.get("destination", ""), depot_stop
         ):
             continue
 
-        # ── Text similarity ────────────────────────────────────────────────────
+        # Text similarity
         text_score = text_sim.similarity(
             lost.get("description", ""),
             found_report.get("notes", "")
         )
 
-        # ── Image similarity (optional) ────────────────────────────────────────
+        # Image similarity
         image_score = 0.0
         if found_img_full and lost.get("image_path"):
             image_score = image_sim.similarity(
@@ -235,13 +211,13 @@ def compute_and_save_matches(found_report: dict, depot_stop: str) -> int:
                 os.path.join("static", lost["image_path"])
             )
 
-        # ── Unified score ─────────────────────────────────────────────────────
-        score = UnifiedScorer.compute(text_score, image_score, route_score=1.0)
+        # Unified score
+        score = UnifiedScorer.compute(text_score, image_score, route_score=1.0) #final_score=(0.5×text_score)+(0.3×image_score)+(0.2×route_score)
 
         if not score["is_match"]:
             continue
 
-        # ── Upsert into matches collection ────────────────────────────────────
+        # Upsert into matches collection
         # Use (found_id + request_id) as the unique key — prevents duplicates
         # even if matching runs multiple times for the same pair.
         matches_collection.update_one(
@@ -325,10 +301,8 @@ def get_matches_for_depot(depot_phone: str) -> list:
     return result
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# SECTION 5 — Passenger Routes
-# ──────────────────────────────────────────────────────────────────────────────
 
+# SECTION 5 — Passenger Routes
 @app.route('/')
 def index():
     """Passenger homepage: report form + Leaflet map."""
@@ -398,10 +372,7 @@ def status_page():
     return render_template('status.html')
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 # SECTION 6 — Depot Staff Routes
-# ──────────────────────────────────────────────────────────────────────────────
-
 @app.route('/depot-login')
 def depot_login_page():
     return render_template('depot_login.html', depots=get_depots())
@@ -533,9 +504,8 @@ def submit_found():
     return redirect(url_for('depot_dashboard'))
 
 
-# ──────────────────────────────────────────────────────────────────────────────
+
 # SECTION 7 — API Endpoints
-# ──────────────────────────────────────────────────────────────────────────────
 
 @app.route('/api/status/<tracking_id>')
 def api_status(tracking_id: str):
@@ -607,7 +577,7 @@ def resolve_match():
 
     from bson import ObjectId
 
-    # ── Step 1: Mark this match as resolved ───────────────────────────────────
+    # Step 1: Mark this match as resolved
     match_result = matches_collection.update_one(
         {"_id": ObjectId(match_id), "status": {"$ne": "resolved"}},
         {"$set": {
@@ -623,7 +593,7 @@ def resolve_match():
             "message": "Match not found or already resolved."
         }), 404
 
-    # ── Step 2: Mark the lost report as resolved ──────────────────────────────
+    # Step 2: Mark the lost report as resolved
     # This prevents it from matching other found reports in the future.
     lost_collection.update_one(
         {"request_id": request_id},
@@ -634,7 +604,7 @@ def resolve_match():
         }}
     )
 
-    # ── Step 3: Cancel all OTHER pending matches for this lost report ─────────
+    # Step 3: Cancel all OTHER pending matches for this lost report
     # Once resolved, there's no point showing the same lost item under
     # other found reports in the depot dashboard.
     matches_collection.update_many(
@@ -651,6 +621,5 @@ def resolve_match():
     })
 
 
-# ──────────────────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
     app.run(debug=True, use_reloader=False, port=5003)
