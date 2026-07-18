@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 # Load env variables BEFORE importing modules that depend on them (like Twilio and OCR)
 load_dotenv()
 
+import groq
+
 from similarity import TextSimilarity, ImageSimilarity, UnifiedScorer, OCRExtractor
 from notifications import notification_service
 
@@ -595,6 +597,40 @@ def get_stops(route_id: str):
         return jsonify({"stops": get_stop_names(route)})
     return jsonify({"stops": []}), 404
 
+@app.route('/api/translate', methods=['POST'])
+def api_translate():
+    """Translate incoming text to English using Groq."""
+    data = request.json
+    if not data or 'text' not in data:
+        return jsonify({'error': 'No text provided'}), 400
+    
+    text = data['text']
+    source_lang = data.get('lang', 'unknown')
+    
+    groq_api_key = os.environ.get("GROQ_API_KEY")
+    if not groq_api_key:
+        return jsonify({'error': 'Groq API key not configured.'}), 500
+        
+    try:
+        client = groq.Groq(api_key=groq_api_key)
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a professional translator for a lost luggage recovery system. Translate the user's text into clear, concise English. Only output the translated English text, nothing else."
+                },
+                {
+                    "role": "user",
+                    "content": text
+                }
+            ],
+            model="llama3-8b-8192",
+        )
+        translated_text = chat_completion.choices[0].message.content.strip()
+        return jsonify({'translated': translated_text})
+    except Exception as e:
+        logger.error(f"Translation error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/match/resolve', methods=['POST'])
 def resolve_match():
