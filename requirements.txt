@@ -8,3 +8,5 @@ Pillow
 flask-caching
 pymongo[srv]
 python-dotenv
+requests
+twilio

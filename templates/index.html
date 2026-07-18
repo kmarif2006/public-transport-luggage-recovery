@@ -56,7 +56,7 @@
                     <p class="font-tamil text-sm mt-1">தொலைந்த உடைமை அறிக்கை</p>
                 </div>
 
-                <form action="{{ url_for('submit_lost') }}" method="POST" class="p-8 space-y-6" id="lost-form">
+                <form action="{{ url_for('submit_lost') }}" method="POST" enctype="multipart/form-data" class="p-8 space-y-6" id="lost-form">
                     <div class="grid md:grid-cols-2 gap-6">
                         <!-- Name -->
                         <div class="space-y-1.5">
@@ -138,6 +138,21 @@
                         <p class="text-[11px] text-slate-500 font-medium italic">
                             More detail = better AI match accuracy.
                         </p>
+                    </div>
+
+                    <!-- Image Upload -->
+                    <div class="space-y-1.5">
+                        <label class="block text-sm font-bold text-slate-700">
+                            Upload Reference Image (Optional) / புகைப்படம் <span class="text-slate-400 font-normal">(விருப்பத் தேர்வு)</span>
+                        </label>
+                        <input type="file" name="image" accept="image/*"
+                               class="w-full text-sm font-medium text-slate-500
+                                      file:mr-4 file:py-2 file:px-4
+                                      file:rounded-md file:border-0
+                                      file:text-sm file:font-bold
+                                      file:bg-tn-blue file:text-white
+                                      hover:file:bg-tn-blue/90
+                                      border border-slate-300 rounded-md p-1 input-focus">
                     </div>
 
                     <div class="pt-2">
