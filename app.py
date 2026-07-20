@@ -1,7 +1,7 @@
 import os
 import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import (
     Flask, render_template, request,
@@ -10,9 +10,14 @@ from flask import (
 from werkzeug.utils import secure_filename
 from pymongo import MongoClient
 from dotenv import load_dotenv
-from similarity import TextSimilarity, ImageSimilarity, UnifiedScorer # Import AI modules
 
+# Load env variables BEFORE importing modules that depend on them (like Twilio and OCR)
 load_dotenv()
+
+import groq
+
+from similarity import TextSimilarity, ImageSimilarity, UnifiedScorer, OCRExtractor
+from notifications import notification_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,6 +39,7 @@ depots_collection  = db['depots']         # Depot credentials
 logger.info("Initialising AI models…")
 text_sim  = TextSimilarity()
 image_sim = ImageSimilarity(db=db)
+ocr_ext   = OCRExtractor()
 logger.info(f"CLIP available: {image_sim.available}")
 
 # File Upload
@@ -152,9 +158,9 @@ def luggage_could_be_at_depot(stops: list, src: str, dst: str, depot_stop: str) 
         j = stops.index(dst)
         k = stops.index(depot_stop)
         if i < j:
-            return k > j    # Forward journey: depot is past destination
+            return k >= j    # Forward journey: depot is at or past destination
         elif i > j:
-            return k < j    # Reverse journey: depot is before destination
+            return k <= j    # Reverse journey: depot is at or before destination
         else:
             return False    # Same stop — invalid
     except ValueError:
@@ -177,16 +183,32 @@ def compute_and_save_matches(found_report: dict, depot_stop: str) -> int:
     stops = get_stop_names(route)
 
     # Pre-compute the found item's image embedding (cached in MongoDB by ImageSimilarity)
+    # Also perform OCR on the image.
     found_img_full = None
+    extracted_text = ""
     if found_report.get("image_path"):
         found_img_full = os.path.join("static", found_report["image_path"])
+        # Extract text from the image for OCR matching
+        extracted_text = ocr_ext.extract_text(found_img_full)
+
 
     new_matches = 0
+
+    # Handle delayed depot logging: allow matching if lost date is within the last 7 days
+    found_date_str = found_report.get("date", "")
+    valid_dates = [found_date_str]
+    try:
+        found_date_obj = datetime.strptime(found_date_str, "%Y-%m-%d")
+        for i in range(1, 8):
+            prev_date_str = (found_date_obj - timedelta(days=i)).strftime("%Y-%m-%d")
+            valid_dates.append(prev_date_str)
+    except Exception:
+        pass
 
     # Only consider lost reports that are still pending (not already resolved)
     pending_lost = lost_collection.find({
         "route_id": found_report.get("route_id"),
-        "date":     found_report.get("date"),
+        "date":     {"$in": valid_dates},
         "status":   {"$ne": "resolved"}
     })
 
@@ -211,8 +233,23 @@ def compute_and_save_matches(found_report: dict, depot_stop: str) -> int:
                 os.path.join("static", lost["image_path"])
             )
 
+        # OCR Score
+        # If the passenger's name or key terms from description appear in the OCR text, give a massive boost (1.0).
+        ocr_score = 0.0
+        if extracted_text:
+            passenger_name = lost.get("name", "").lower()
+            if passenger_name and passenger_name in extracted_text:
+                ocr_score = 1.0
+            else:
+                # Basic keyword check (e.g., brand names in description)
+                desc = lost.get("description", "").lower()
+                for word in desc.split():
+                    if len(word) > 4 and word in extracted_text:
+                        ocr_score = 1.0
+                        break
+
         # Unified score
-        score = UnifiedScorer.compute(text_score, image_score, route_score=1.0) #final_score=(0.5×text_score)+(0.3×image_score)+(0.2×route_score)
+        score = UnifiedScorer.compute(text_score, image_score, route_score=1.0, ocr_score=ocr_score)
 
         if not score["is_match"]:
             continue
@@ -239,6 +276,14 @@ def compute_and_save_matches(found_report: dict, depot_stop: str) -> int:
             upsert=True
         )
         new_matches += 1
+
+        # Trigger Twilio WhatsApp if it's an exceptionally high match (e.g., > 0.80)
+        if score["final"] >= 0.80:
+            passenger_phone = lost.get("phone")
+            if passenger_phone:
+                msg = f"TNSTC Alert: A highly likely match for your lost item was found at {found_report['depot_name']}. Please check the portal with your Tracking ID: {lost['tracking_id']}."
+                notification_service.send_whatsapp(passenger_phone, msg)
+
 
     return new_matches
 
@@ -320,6 +365,7 @@ def submit_lost():
     description = request.form.get('description')
     phone       = request.form.get('phone')
     name        = request.form.get('name')
+    image_file  = request.files.get('image')
 
     if not all([route_id, date, source, destination, description, phone, name]):
         flash('Please fill in all required fields.', 'error')
@@ -338,6 +384,10 @@ def submit_lost():
     tracking_id = generate_tracking_id()
     request_id  = uuid.uuid4().hex   # Internal unique key for DB relations
 
+    image_path = None
+    if image_file and image_file.filename:
+        image_path = save_uploaded_image(image_file)
+
     report = {
         "request_id":    request_id,    # Unique internal ID (used in matches)
         "tracking_id":   tracking_id,   # Human-readable ID shown to passenger
@@ -349,6 +399,7 @@ def submit_lost():
         "description":   description,
         "phone":         phone,
         "name":          name,
+        "image_path":    image_path,
         "status":        "pending",     # pending | resolved
         "matched_depot": None,
         "matched_at":    None,
@@ -546,6 +597,40 @@ def get_stops(route_id: str):
         return jsonify({"stops": get_stop_names(route)})
     return jsonify({"stops": []}), 404
 
+@app.route('/api/translate', methods=['POST'])
+def api_translate():
+    """Translate incoming text to English using Groq."""
+    data = request.json
+    if not data or 'text' not in data:
+        return jsonify({'error': 'No text provided'}), 400
+    
+    text = data['text']
+    source_lang = data.get('lang', 'unknown')
+    
+    groq_api_key = os.environ.get("GROQ_API_KEY")
+    if not groq_api_key:
+        return jsonify({'error': 'Groq API key not configured.'}), 500
+        
+    try:
+        client = groq.Groq(api_key=groq_api_key)
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a professional translator for a lost luggage recovery system. Translate the user's text into clear, concise English. Only output the translated English text, nothing else."
+                },
+                {
+                    "role": "user",
+                    "content": text
+                }
+            ],
+            model="llama3-8b-8192",
+        )
+        translated_text = chat_completion.choices[0].message.content.strip()
+        return jsonify({'translated': translated_text})
+    except Exception as e:
+        logger.error(f"Translation error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/match/resolve', methods=['POST'])
 def resolve_match():
@@ -604,16 +689,16 @@ def resolve_match():
         }}
     )
 
-    # Step 3: Cancel all OTHER pending matches for this lost report
-    # Once resolved, there's no point showing the same lost item under
-    # other found reports in the depot dashboard.
+    # Step 3: Cancel all other pending matches for this passenger
     matches_collection.update_many(
-        {
-            "request_id": request_id,
-            "status":     "pending"
-        },
+        {"request_id": request_id, "status": "pending"},
         {"$set": {"status": "cancelled"}}
     )
+    # Step 4: Send WhatsApp notification to the passenger
+    lost_report = lost_collection.find_one({"request_id": request_id})
+    if lost_report and lost_report.get("phone"):
+        msg = f"TNSTC Alert: Good news! Your lost item ({lost_report.get('tracking_id')}) has been verified and found at {depot_name}. Please visit the depot to collect it."
+        notification_service.send_whatsapp(lost_report["phone"], msg)
 
     return jsonify({
         "success": True,

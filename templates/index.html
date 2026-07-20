@@ -56,7 +56,7 @@
                     <p class="font-tamil text-sm mt-1">தொலைந்த உடைமை அறிக்கை</p>
                 </div>
 
-                <form action="{{ url_for('submit_lost') }}" method="POST" class="p-8 space-y-6" id="lost-form">
+                <form action="{{ url_for('submit_lost') }}" method="POST" enctype="multipart/form-data" class="p-8 space-y-6" id="lost-form">
                     <div class="grid md:grid-cols-2 gap-6">
                         <!-- Name -->
                         <div class="space-y-1.5">
@@ -132,12 +132,53 @@
                         <label class="block text-sm font-bold text-slate-700">
                             Luggage Description / உடைமை விவரம் <span class="text-tn-red">*</span>
                         </label>
-                        <textarea name="description" required rows="3"
+                        
+                        <!-- Voice Assistant UI -->
+                        <div class="flex items-center gap-3 bg-slate-50 p-2 rounded-md border border-slate-200 mb-2">
+                            <select id="voice_lang" class="h-8 px-2 text-sm border-slate-300 rounded-md font-medium text-slate-700 bg-white shadow-sm">
+                                <option value="ta-IN">Tamil (தமிழ்)</option>
+                                <option value="hi-IN">Hindi (हिंदी)</option>
+                                <option value="en-US">English</option>
+                            </select>
+                            
+                            <button type="button" id="voice_btn" 
+                                    class="flex items-center gap-2 h-8 px-3 rounded-full bg-slate-200 text-slate-700 hover:bg-tn-blue hover:text-white transition-colors duration-200 font-bold text-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                </svg>
+                                <span>Tap to Speak</span>
+                            </button>
+                            
+                            <div id="voice_status" class="text-xs font-semibold text-slate-500 hidden items-center gap-1">
+                                <span class="relative flex h-2.5 w-2.5">
+                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tn-red opacity-75"></span>
+                                  <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-tn-red"></span>
+                                </span>
+                                Listening...
+                            </div>
+                        </div>
+
+                        <textarea name="description" id="desc_input" required rows="3"
                                   class="w-full p-4 border border-slate-300 rounded-md font-medium input-focus resize-none"
-                                  placeholder="Describe your lost item in detail — color, size, brand, contents…"></textarea>
+                                  placeholder="Describe your lost item in detail or use the microphone to speak..."></textarea>
                         <p class="text-[11px] text-slate-500 font-medium italic">
                             More detail = better AI match accuracy.
                         </p>
+                    </div>
+
+                    <!-- Image Upload -->
+                    <div class="space-y-1.5">
+                        <label class="block text-sm font-bold text-slate-700">
+                            Upload Reference Image (Optional) / புகைப்படம் <span class="text-slate-400 font-normal">(விருப்பத் தேர்வு)</span>
+                        </label>
+                        <input type="file" name="image" accept="image/*"
+                               class="w-full text-sm font-medium text-slate-500
+                                      file:mr-4 file:py-2 file:px-4
+                                      file:rounded-md file:border-0
+                                      file:text-sm file:font-bold
+                                      file:bg-tn-blue file:text-white
+                                      hover:file:bg-tn-blue/90
+                                      border border-slate-300 rounded-md p-1 input-focus">
                     </div>
 
                     <div class="pt-2">
@@ -252,6 +293,106 @@ function copyTrackingId() {
             val.style.color = '#16a34a';
             setTimeout(() => val.style.color = '', 1500);
         });
+}
+
+// ═══════════════════════════════════════════════════════
+// Voice Assistant Logic
+// ═══════════════════════════════════════════════════════
+const voiceBtn = document.getElementById('voice_btn');
+const voiceLang = document.getElementById('voice_lang');
+const voiceStatus = document.getElementById('voice_status');
+const descInput = document.getElementById('desc_input');
+
+if (voiceBtn) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        
+        let isRecording = false;
+        let finalTranscript = '';
+        let originalDescValue = '';
+
+        voiceBtn.addEventListener('click', () => {
+            if (isRecording) {
+                recognition.stop();
+                return;
+            }
+            
+            recognition.lang = voiceLang.value;
+            finalTranscript = '';
+            originalDescValue = descInput.value;
+            recognition.start();
+        });
+
+        recognition.onstart = () => {
+            isRecording = true;
+            voiceStatus.classList.remove('hidden');
+            voiceStatus.classList.add('flex');
+            voiceBtn.classList.replace('bg-slate-200', 'bg-tn-red');
+            voiceBtn.classList.replace('text-slate-700', 'text-white');
+            voiceBtn.querySelector('span').textContent = 'Stop Speaking';
+        };
+
+        recognition.onresult = (event) => {
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript + ' ';
+                } else {
+                    interimTranscript += event.results[i][0].transcript;
+                }
+            }
+            
+            // Show live preview while they speak
+            let currentText = finalTranscript + interimTranscript;
+            descInput.value = originalDescValue ? originalDescValue + ' ' + currentText : currentText;
+        };
+
+        recognition.onend = async () => {
+            isRecording = false;
+            voiceStatus.classList.add('hidden');
+            voiceStatus.classList.remove('flex');
+            voiceBtn.classList.replace('bg-tn-red', 'bg-slate-200');
+            voiceBtn.classList.replace('text-white', 'text-slate-700');
+            voiceBtn.querySelector('span').textContent = 'Tap to Speak';
+
+            if (!finalTranscript.trim()) return;
+
+            const lang = voiceLang.value;
+            if (lang === 'en-US') {
+                return; // Already English, and already appended during onresult
+            }
+            
+            // Translate the finalized block of text
+            voiceBtn.querySelector('span').textContent = 'Translating...';
+            try {
+                const response = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: finalTranscript.trim(), lang: lang.split('-')[0] })
+                });
+                const data = await response.json();
+                if (data.translated) {
+                    descInput.value = originalDescValue ? originalDescValue + ' ' + data.translated : data.translated;
+                }
+            } catch (err) {
+                console.error('Translation error:', err);
+                alert("Translation failed. Please try again or type in English.");
+            } finally {
+                voiceBtn.querySelector('span').textContent = 'Tap to Speak';
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error', event.error);
+            alert("Microphone error: " + event.error);
+        };
+    } else {
+        voiceBtn.style.display = 'none';
+        console.warn("Speech Recognition API not supported in this browser.");
+    }
 }
 
 // ═══════════════════════════════════════════════════════

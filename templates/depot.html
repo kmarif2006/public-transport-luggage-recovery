@@ -233,6 +233,12 @@
                                         Image: {{ "%.2f"|format(lost.score.image) }}
                                     </span>
                                     {% endif %}
+                                    {% if 'ocr' in lost.score %}
+                                    <span class="score-badge">
+                                        <span class="score-dot bg-pink-500"></span>
+                                        OCR: {{ "%.2f"|format(lost.score.ocr) }}
+                                    </span>
+                                    {% endif %}
                                     <span class="score-badge">
                                         <span class="score-dot bg-green-500"></span>
                                         Route: {{ "%.1f"|format(lost.score.route) }}

@@ -8,3 +8,7 @@ Pillow
 flask-caching
 pymongo[srv]
 python-dotenv
+requests
+twilio
+deep-translator==1.11.4
+groq

@@ -13,6 +13,7 @@ Three components:
 import hashlib
 import logging
 import os
+import requests
 from typing import Optional
 
 import numpy as np
@@ -155,6 +156,11 @@ class ImageSimilarity:
             inputs = self.processor(images=image, return_tensors="pt")
             with torch.no_grad():
                 features = self.model.get_image_features(**inputs)
+                
+                # Handle old transformers version where it returns BaseModelOutputWithPooling
+                if not isinstance(features, torch.Tensor) and hasattr(features, "pooler_output"):
+                    features = features.pooler_output
+                    
                 # Normalize to unit vector (cosine similarity works best this way)
                 features = features / features.norm(dim=-1, keepdim=True)
             embedding = features[0].cpu().numpy()
@@ -183,6 +189,62 @@ class ImageSimilarity:
 
 
 # ──────────────────────────────────────────────
+# 2.5 OCR EXTRACTOR (OCR.Space)
+# ──────────────────────────────────────────────
+class OCRExtractor:
+    """
+    Extracts text from images using the free OCR.Space API.
+    """
+    def __init__(self):
+        self.api_key = os.environ.get("OCR_API_KEY")
+        self.api_url = "https://api.ocr.space/parse/image"
+
+        # Check if the placeholder is still there or if it's missing
+        if not self.api_key or "YOUR_" in self.api_key:
+            self.api_key = None
+            logger.warning("OCR API key missing or invalid. OCR extraction disabled.")
+
+    def extract_text(self, image_path: str) -> str:
+        """
+        Send image to OCR.Space and return the extracted text.
+        """
+        if not self.api_key or not os.path.exists(image_path):
+            return ""
+
+        try:
+            with open(image_path, 'rb') as f:
+                # We need to send the file as multipart/form-data
+                payload = {
+                    'apikey': self.api_key,
+                    'language': 'eng',
+                    'isOverlayRequired': False,
+                    'scale': True
+                }
+                ext = os.path.splitext(image_path)[1].lower()
+                mime_type = "image/png" if ext == ".png" else "image/jpeg"
+                response = requests.post(
+                    self.api_url,
+                    files={'file': (os.path.basename(image_path), f, mime_type)},
+                    data=payload
+                )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get("IsErroredOnProcessing") == False:
+                        # Combine text from all parsed results
+                        parsed_text = " ".join([
+                            r.get("ParsedText", "").replace('\r', '').replace('\n', ' ')
+                            for r in result.get("ParsedResults", [])
+                        ])
+                        return parsed_text.strip().lower()
+                    else:
+                        logger.error(f"OCR API Error: {result.get('ErrorMessage')}")
+        except Exception as e:
+            logger.error(f"OCR Extraction failed for {image_path}: {e}")
+
+        return ""
+
+# ──────────────────────────────────────────────
 # 3. UNIFIED SCORER
 # ──────────────────────────────────────────────
 class UnifiedScorer:
@@ -193,11 +255,13 @@ class UnifiedScorer:
         final_score = (0.5 × text_score)
                     + (0.3 × image_score)
                     + (0.2 × route_score)
+                    + ocr_score
 
     Weights rationale:
         - Text (0.5)  : Most reliable signal — descriptions are detailed
         - Image (0.3) : Strong visual evidence when available
         - Route (0.2) : Binary pass/fail based on route logic
+        - OCR (+1.0)  : If the passenger's name or exact description keywords are found on the bag, it's a guaranteed match.
 
     route_score is always 1.0 or 0.0 (boolean route eligibility).
     When no image is provided, image_score = 0.0 (weight redistributed
@@ -211,7 +275,8 @@ class UnifiedScorer:
     def compute(
         text_score: float,
         image_score: float,
-        route_score: float
+        route_score: float,
+        ocr_score: float = 0.0
     ) -> dict:
         """
         Compute unified score and return a breakdown dict.
@@ -225,12 +290,15 @@ class UnifiedScorer:
               "is_match": True
             }
         """
-        final = (0.5 * text_score) + (0.3 * image_score) + (0.2 * route_score)
+        final = (0.5 * text_score) + (0.3 * image_score) + (0.2 * route_score) + ocr_score
+        # Cap at 1.0
+        final = min(1.0, float(final))
         final = round(float(final), 4)
         return {
             "text":     round(float(text_score), 4),
             "image":    round(float(image_score), 4),
             "route":    round(float(route_score), 4),
+            "ocr":      round(float(ocr_score), 4),
             "final":    final,
             "is_match": final >= UnifiedScorer.MATCH_THRESHOLD
         }
