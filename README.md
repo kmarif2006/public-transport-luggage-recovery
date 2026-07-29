@@ -55,7 +55,7 @@ Items lost on a bus typically stay on the bus until it reaches a depot or the en
 Traditional keyword search fails (e.g., "blue bag" vs "navy rucksack"). 
 -   The system converts descriptions into **384-dimensional embeddings**.
 -   **Cosine Similarity** compares the `Lost Description` vs `Depot Notes`.
--   **Threshold**: Set at `0.25` to balance high sensitivity with relevance.
+-   **Threshold**: Set at `0.30` (the unified match score) to balance high sensitivity with relevance.
 
 ---
 

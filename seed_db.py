@@ -1,4 +1,5 @@
 import os
+import sys
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -51,6 +52,14 @@ def seed_db():
     client = MongoClient(uri)
     db = client['tn_bus_lost_found']
     depots_collection = db['depots']
+
+    # DEPRECATED: seed_transport.py is now the authoritative depot seeder (it
+    # builds the full 100-depot master and preserves logins). Running this old
+    # 5-depot seeder would wipe that master, so refuse unless explicitly forced.
+    if depots_collection.find_one({"depot_code": {"$exists": True}}) and "--force" not in sys.argv:
+        print("Transport-master depots detected. This legacy seeder is deprecated; "
+              "use `python seed_transport.py`. Re-run with --force to override.")
+        return
 
     # Clear existing depots to avoid duplicates during seeding
     depots_collection.delete_many({})

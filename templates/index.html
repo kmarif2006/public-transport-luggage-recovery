@@ -57,6 +57,7 @@
                 </div>
 
                 <form action="{{ url_for('submit_lost') }}" method="POST" enctype="multipart/form-data" class="p-8 space-y-6" id="lost-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="grid md:grid-cols-2 gap-6">
                         <!-- Name -->
                         <div class="space-y-1.5">
@@ -78,21 +79,31 @@
                         </div>
                     </div>
 
+                    <!-- Bus Route (searchable over the 500-route SETC catalog) -->
+                    <div class="space-y-1.5 relative">
+                        <label class="block text-sm font-bold text-slate-700">
+                            Bus Route / பேருந்து வழித்தடம் <span class="text-tn-red">*</span>
+                        </label>
+                        <input type="text" id="route_search" autocomplete="off"
+                               class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus"
+                               placeholder="Search route no. or city (e.g. Chennai, 831UD, Madurai)">
+                        <input type="hidden" name="route_id" id="route_id">
+                        <!-- Autocomplete results -->
+                        <div id="route_results"
+                             class="hidden absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-64 overflow-y-auto"></div>
+                        <!-- Selected route summary -->
+                        <div id="route_summary" class="hidden mt-2 text-[11px] font-bold text-tn-blue bg-blue-50 border border-blue-100 rounded-md px-3 py-2"></div>
+                    </div>
+
                     <div class="grid md:grid-cols-2 gap-6">
-                        <!-- Route -->
+                        <!-- Service / Bus (trip) -->
                         <div class="space-y-1.5">
                             <label class="block text-sm font-bold text-slate-700">
-                                Bus Route / பேருந்து வழித்தடம் <span class="text-tn-red">*</span>
+                                Bus / Service / பேருந்து சேவை <span class="text-tn-red">*</span>
                             </label>
-                            <select name="route_id" id="route_select" required
-                                    class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
-                                <option value="">Select your route</option>
-                                {% for route in routes %}
-                                <option value="{{ route.id }}"
-                                        data-stops="{{ route.stops | map(attribute='name') | join(',') }}">
-                                    {{ route.name }}
-                                </option>
-                                {% endfor %}
+                            <select name="trip_id" id="trip_select" required disabled
+                                    class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus disabled:bg-slate-100 disabled:text-slate-400">
+                                <option value="">Select a route first</option>
                             </select>
                         </div>
                         <!-- Date -->
@@ -105,14 +116,14 @@
                         </div>
                     </div>
 
-                    <!-- Source & Destination -->
+                    <!-- Boarding & Alighting stop (from the route's real stop sequence) -->
                     <div class="grid grid-cols-2 gap-6">
                         <div class="space-y-1.5">
                             <label class="block text-sm font-bold text-slate-700">
                                 Boarded At / ஏறிய இடம் <span class="text-tn-red">*</span>
                             </label>
-                            <select name="source" id="source_select" required
-                                    class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
+                            <select name="boarding_stop_id" id="boarding_select" required disabled
+                                    class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus disabled:bg-slate-100 disabled:text-slate-400">
                                 <option value="">Select stop</option>
                             </select>
                         </div>
@@ -120,11 +131,29 @@
                             <label class="block text-sm font-bold text-slate-700">
                                 Alighted At / இறங்கிய இடம் <span class="text-tn-red">*</span>
                             </label>
-                            <select name="destination" id="dest_select" required
-                                    class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
+                            <select name="alighting_stop_id" id="alighting_select" required disabled
+                                    class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus disabled:bg-slate-100 disabled:text-slate-400">
                                 <option value="">Select stop</option>
                             </select>
                         </div>
+                    </div>
+
+                    <!-- Visual seat picker (rendered from the selected bus's layout) -->
+                    <div class="space-y-1.5">
+                        <label class="block text-sm font-bold text-slate-700">
+                            Your Seat / இருக்கை எண் <span class="text-tn-red">*</span>
+                        </label>
+                        <input type="hidden" name="seat_no" id="seat_no">
+                        <div id="seat_wrap" class="border border-slate-200 rounded-md p-4 bg-slate-50">
+                            <p id="seat_hint" class="text-[11px] text-slate-500 font-medium italic text-center py-3">
+                                Select a bus/service above to choose your seat.
+                            </p>
+                            <div id="seat_map" class="hidden"></div>
+                            <p id="seat_selected" class="hidden mt-3 text-center text-xs font-bold text-tn-blue"></p>
+                        </div>
+                        <p class="text-[11px] text-slate-500 font-medium italic">
+                            Pick where you were sitting — it helps locate items left nearby.
+                        </p>
                     </div>
 
                     <!-- Description -->
@@ -199,7 +228,7 @@
                 <div class="bg-slate-50 p-4 border-b border-slate-200 flex items-center justify-between">
                     <div>
                         <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Bus Route Map</h3>
-                        <p class="text-[11px] text-slate-400 mt-0.5">Click a stop to auto-select it in the form</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Select a route to view its path and stops</p>
                     </div>
                     <svg class="w-5 h-5 text-tn-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -251,34 +280,221 @@
 {% block scripts %}
 <script>
 // ═══════════════════════════════════════════════════════
-// Stop dropdown population on route change
+// Cascading selector: Route → Service/Bus → Stops → Seat
+// (backed by the /api/transport/* catalog)
 // ═══════════════════════════════════════════════════════
-const routeSelect  = document.getElementById('route_select');
-const sourceSelect = document.getElementById('source_select');
-const destSelect   = document.getElementById('dest_select');
-const dateInput    = document.getElementById('date_input');
+const routeSearch   = document.getElementById('route_search');
+const routeResults  = document.getElementById('route_results');
+const routeSummary  = document.getElementById('route_summary');
+const routeIdInput  = document.getElementById('route_id');
+const tripSelect    = document.getElementById('trip_select');
+const boardingSelect  = document.getElementById('boarding_select');
+const alightingSelect = document.getElementById('alighting_select');
+const dateInput     = document.getElementById('date_input');
 
 // Cap date at today
 dateInput.max = new Date().toISOString().split('T')[0];
 
-function populateStops(stops) {
-    const stopArray = stops ? stops.split(',') : [];
-    const blank = '<option value="">Select stop / இடம்</option>';
-    sourceSelect.innerHTML = blank;
-    destSelect.innerHTML   = blank;
-    stopArray.forEach(stop => {
-        const opt = `<option value="${stop}">${stop}</option>`;
-        sourceSelect.innerHTML += opt;
-        destSelect.innerHTML   += opt;
-    });
+// ── Route autocomplete (debounced) ─────────────────────────────────────────
+let _searchTimer = null;
+routeSearch.addEventListener('input', function () {
+    const q = this.value.trim();
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(() => runRouteSearch(q), 220);
+});
+routeSearch.addEventListener('focus', function () {
+    if (routeResults.children.length) routeResults.classList.remove('hidden');
+});
+document.addEventListener('click', (e) => {
+    if (!routeResults.contains(e.target) && e.target !== routeSearch) {
+        routeResults.classList.add('hidden');
+    }
+});
+
+function runRouteSearch(q) {
+    fetch(`/api/transport/routes?q=${encodeURIComponent(q)}&limit=25`)
+        .then(r => r.json())
+        .then(routes => {
+            routeResults.innerHTML = '';
+            if (!routes.length) {
+                routeResults.innerHTML =
+                    '<div class="px-3 py-2 text-xs text-slate-400 font-medium">No matching routes.</div>';
+            }
+            routes.forEach(rt => {
+                const via = rt.via ? ` <span class="text-slate-400">(${rt.via})</span>` : '';
+                const item = document.createElement('div');
+                item.className =
+                    'px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b border-slate-50';
+                item.innerHTML =
+                    `<span class="font-bold text-tn-blue mono">${rt.route_no}</span> · ` +
+                    `${rt.origin_name} → ${rt.dest_name}${via} ` +
+                    `<span class="text-[10px] text-slate-400">${rt.distance_km} km · ${rt.type}</span>`;
+                item.addEventListener('click', () => selectRoute(rt));
+                routeResults.appendChild(item);
+            });
+            routeResults.classList.remove('hidden');
+        })
+        .catch(err => console.error('route search failed', err));
 }
 
-routeSelect.addEventListener('change', function () {
-    const stops = this.options[this.selectedIndex].getAttribute('data-stops') || '';
-    populateStops(stops);
-    // Highlight the selected route on the map
-    if (window._mapRoutes && window._leafletMap) {
-        highlightRoute(window._leafletMap, window._mapRoutes, this.value);
+// ── Route selected → load stops, trips, map ─────────────────────────────────
+function selectRoute(rt) {
+    routeIdInput.value = rt.route_id;
+    routeSearch.value  = `${rt.route_no} · ${rt.origin_name} → ${rt.dest_name}`;
+    routeResults.classList.add('hidden');
+    routeSummary.textContent =
+        `${rt.route_no} · ${rt.origin_name} → ${rt.dest_name} · ${rt.distance_km} km · ${rt.type}`;
+    routeSummary.classList.remove('hidden');
+
+    // reset downstream selections
+    resetSeat();
+    tripSelect.disabled = true;
+    tripSelect.innerHTML = '<option value="">Loading services…</option>';
+
+    // Stops + map
+    fetch(`/api/transport/routes/${rt.route_id}`)
+        .then(r => r.json())
+        .then(detail => {
+            populateStops(detail.stops);
+            if (window._leafletMap) renderSingleRoute(window._leafletMap, detail);
+        });
+
+    // Trips (bus + timing)
+    fetch(`/api/transport/routes/${rt.route_id}/trips`)
+        .then(r => r.json())
+        .then(trips => {
+            tripSelect.innerHTML = '<option value="">Select a service</option>';
+            if (!trips.length) {
+                tripSelect.innerHTML = '<option value="">No services listed</option>';
+                return;
+            }
+            trips.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.trip_id;
+                opt.dataset.bus = t.registration_no || '';
+                opt.textContent =
+                    `${t.departure_time} · ${t.registration_no || 'Bus'} (${t.type || ''})`;
+                tripSelect.appendChild(opt);
+            });
+            tripSelect.disabled = false;
+        });
+}
+
+function populateStops(stops) {
+    const blank = '<option value="">Select stop / இடம்</option>';
+    boardingSelect.innerHTML  = blank;
+    alightingSelect.innerHTML = blank;
+    stops.forEach(s => {
+        const o1 = new Option(s.name, s.stop_id);
+        const o2 = new Option(s.name, s.stop_id);
+        boardingSelect.add(o1);
+        alightingSelect.add(o2);
+    });
+    boardingSelect.disabled  = false;
+    alightingSelect.disabled = false;
+}
+
+// ── Service selected → render the visual seat map ───────────────────────────
+tripSelect.addEventListener('change', function () {
+    resetSeat();
+    if (!this.value) return;
+    fetch(`/api/transport/trips/${this.value}/seatmap`)
+        .then(r => r.json())
+        .then(renderSeatMap)
+        .catch(err => console.error('seatmap failed', err));
+});
+
+const seatNoInput  = document.getElementById('seat_no');
+const seatMapEl     = document.getElementById('seat_map');
+const seatHint      = document.getElementById('seat_hint');
+const seatSelected  = document.getElementById('seat_selected');
+
+function resetSeat() {
+    seatNoInput.value = '';
+    seatMapEl.innerHTML = '';
+    seatMapEl.classList.add('hidden');
+    seatSelected.classList.add('hidden');
+    seatHint.classList.remove('hidden');
+}
+
+// Build a bus-style seat grid: rows of [seat seat | aisle | seat seat],
+// honoring the layout pattern (2+2 or 2+1) with a wider back row.
+function renderSeatMap(sm) {
+    seatHint.classList.add('hidden');
+    seatMapEl.classList.remove('hidden');
+    seatMapEl.innerHTML = '';
+
+    const perRow   = sm.pattern === '2+1' ? 3 : 4;
+    const aisleAt  = sm.aisle_after || 2;
+    const back     = sm.back_row || 0;
+    const bodySeats = sm.capacity - back;
+
+    const legend = document.createElement('div');
+    legend.className = 'flex items-center justify-between mb-3 text-[10px] font-bold text-slate-400 uppercase tracking-wide';
+    legend.innerHTML =
+        `<span>🚍 Front · ${sm.registration_no || ''}</span><span>${sm.capacity} seats · ${sm.pattern}</span>`;
+    seatMapEl.appendChild(legend);
+
+    const grid = document.createElement('div');
+    grid.className = 'space-y-1.5';
+
+    let seat = 1;
+    const totalBodyRows = Math.ceil(bodySeats / perRow);
+    for (let r = 0; r < totalBodyRows; r++) {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-center gap-1.5';
+        for (let c = 0; c < perRow && seat <= bodySeats; c++) {
+            if (c === aisleAt) {
+                const gap = document.createElement('div');
+                gap.className = 'w-5';   // aisle
+                row.appendChild(gap);
+            }
+            row.appendChild(seatButton(seat++));
+        }
+        grid.appendChild(row);
+    }
+    // Back row (bench) — usually 5 across
+    if (back > 0) {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-center gap-1.5 pt-1 border-t border-dashed border-slate-200 mt-1';
+        for (let c = 0; c < back && seat <= sm.capacity; c++) {
+            row.appendChild(seatButton(seat++));
+        }
+        grid.appendChild(row);
+    }
+    seatMapEl.appendChild(grid);
+}
+
+function seatButton(n) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = n;
+    b.dataset.seat = n;
+    b.className =
+        'seat-btn w-8 h-8 text-[11px] font-bold rounded border border-slate-300 bg-white ' +
+        'text-slate-600 hover:border-tn-blue hover:bg-blue-50 transition-colors';
+    b.addEventListener('click', () => {
+        seatMapEl.querySelectorAll('.seat-btn').forEach(x => {
+            x.classList.remove('bg-tn-blue', 'text-white', 'border-tn-blue');
+            x.classList.add('bg-white', 'text-slate-600');
+        });
+        b.classList.remove('bg-white', 'text-slate-600');
+        b.classList.add('bg-tn-blue', 'text-white', 'border-tn-blue');
+        seatNoInput.value = n;
+        seatSelected.textContent = `Selected seat: ${n}`;
+        seatSelected.classList.remove('hidden');
+    });
+    return b;
+}
+
+// ── Guard submit until the new required selections are present ──────────────
+document.getElementById('lost-form').addEventListener('submit', function (e) {
+    const missing =
+        !routeIdInput.value || !tripSelect.value ||
+        !boardingSelect.value || !alightingSelect.value || !seatNoInput.value;
+    if (missing) {
+        e.preventDefault();
+        alert('Please select a route, service, boarding/alighting stops and your seat.');
     }
 });
 
@@ -370,7 +586,10 @@ if (voiceBtn) {
             try {
                 const response = await fetch('/api/translate', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                    },
                     body: JSON.stringify({ text: finalTranscript.trim(), lang: lang.split('-')[0] })
                 });
                 const data = await response.json();
@@ -397,32 +616,9 @@ if (voiceBtn) {
 
 // ═══════════════════════════════════════════════════════
 // Initialise Leaflet map (via map.js)
+// The map now draws the SELECTED route (see renderSingleRoute in selectRoute).
 // ═══════════════════════════════════════════════════════
 const _map = initMap('route-map');
 window._leafletMap = _map;
-
-// Allow popup "Select this stop" button to update the form
-window._selectStop = function(stopName) {
-    // Try to set source first, then destination if source already set
-    if (!sourceSelect.value) {
-        // Just set source if empty
-        for (let opt of sourceSelect.options) {
-            if (opt.value === stopName) { opt.selected = true; break; }
-        }
-    } else if (!destSelect.value) {
-        for (let opt of destSelect.options) {
-            if (opt.value === stopName) { opt.selected = true; break; }
-        }
-    }
-    _map.closePopup();
-};
-
-// Load routes and keep a reference for highlight logic
-fetch('/api/routes')
-    .then(r => r.json())
-    .then(routes => {
-        window._mapRoutes = routes;
-        renderRoutes(_map, (stopName) => window._selectStop(stopName));
-    });
 </script>
 {% endblock %}

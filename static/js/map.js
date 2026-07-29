@@ -13,18 +13,6 @@
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Depot metadata (mirrors app.py DEPOTS dict)
-// Used purely for map popup labels — not for auth logic.
-// ─────────────────────────────────────────────────────────────────────────────
-const DEPOT_INFO = {
-  "Chennai":      { phone: "9000000001", name: "Chennai Depot" },
-  "Coimbatore":   { phone: "9000000002", name: "Coimbatore Depot" },
-  "Madurai":      { phone: "9000000003", name: "Madurai Depot" },
-  "Salem":        { phone: "9000000004", name: "Salem Depot" },
-  "Tirunelveli":  { phone: "9000000005", name: "Tirunelveli Depot" }
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Initialise Leaflet map
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -108,125 +96,114 @@ function depotIcon(color) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Render all routes onto a Leaflet map
+// Render the routes a depot operates (depot dashboard overview map)
 // ─────────────────────────────────────────────────────────────────────────────
+
+let _depotRoutesLayer = null;
 
 /**
- * Fetch routes from /api/routes and draw them on the provided map.
- *
- * @param {L.Map} map - Leaflet map instance
- * @param {Function|null} onStopClick - callback(stopName) when a stop marker is clicked
- *        Pass null on pages where stop-selection is not needed.
- */
-function renderRoutes(map, onStopClick = null) {
-  fetch('/api/routes')
-    .then(res => res.json())
-    .then(routes => {
-      const legend = buildLegend(routes);
-      legend.addTo(map);
-
-      routes.forEach(route => {
-        const color = route.color;
-        const latLons = route.stops.map(s => [s.lat, s.lon]);
-
-        // ── Draw polyline ─────────────────────────────────────────────────
-        L.polyline(latLons, {
-          color,
-          weight: 4,
-          opacity: 0.8,
-          dashArray: null
-        }).addTo(map).bindPopup(`<b>${route.name}</b>`);
-
-        // ── Draw stop markers ─────────────────────────────────────────────
-        route.stops.forEach(stop => {
-          const isDepot = stop.name in DEPOT_INFO;
-          const marker  = L.marker([stop.lat, stop.lon], {
-            icon: isDepot ? depotIcon(color) : stopIcon(color),
-            title: stop.name
-          }).addTo(map);
-
-          // Build popup HTML
-          let popupHtml = `<div style="font-family:Poppins,sans-serif;min-width:120px">
-            <b style="color:${color}">${stop.name}</b>`;
-          if (isDepot) {
-            const d = DEPOT_INFO[stop.name];
-            popupHtml += `<br><span style="font-size:11px;color:#555">🏢 ${d.name}</span>
-              <br><span style="font-size:11px;color:#888">📞 ${d.phone}</span>`;
-          }
-          if (onStopClick) {
-            popupHtml += `<br><button onclick="window._selectStop('${stop.name}')"
-              style="margin-top:6px;padding:3px 8px;background:${color};color:white;
-                     border:none;border-radius:4px;cursor:pointer;font-size:11px;">
-              Select this stop</button>`;
-          }
-          popupHtml += `</div>`;
-          marker.bindPopup(popupHtml);
-        });
-      });
-    })
-    .catch(err => console.error('Failed to load routes:', err));
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Highlight a specific route (when user selects route from dropdown)
-// ─────────────────────────────────────────────────────────────────────────────
-
-let _highlightLayer = null;
-
-/**
- * Highlights a specific route polyline on the map with a glow effect.
- * Removes the previous highlight first.
+ * Draw every route a depot operates as a light colored overview (straight
+ * segments — decorative), with origin/destination markers. Data comes from
+ * /api/transport/depots/<phone>/routes.
  *
  * @param {L.Map} map
- * @param {Array} routes - full routes array from API
- * @param {string} routeId - id of the route to highlight
+ * @param {Array} routes - [{ route_no, origin_name, dest_name, stops:[{name,lat,lon}] }]
  */
-function highlightRoute(map, routes, routeId) {
-  if (_highlightLayer) {
-    map.removeLayer(_highlightLayer);
-    _highlightLayer = null;
+function renderDepotRoutes(map, routes) {
+  if (_depotRoutesLayer) {
+    map.removeLayer(_depotRoutesLayer);
+    _depotRoutesLayer = null;
   }
-  const route = routes.find(r => r.id === routeId);
-  if (!route) return;
+  if (!routes || !routes.length) return;
 
-  const latLons = route.stops.map(s => [s.lat, s.lon]);
-  _highlightLayer = L.polyline(latLons, {
-    color: route.color,
-    weight: 8,
-    opacity: 0.5
-  }).addTo(map);
+  const colors = ['#1F6FB2', '#C62828', '#2E7D32', '#D4960A', '#6D28D9', '#0891B2'];
+  const group  = L.layerGroup();
+  const all    = [];
 
-  // Pan to route bounds
-  map.fitBounds(_highlightLayer.getBounds(), { padding: [40, 40] });
+  routes.forEach((rt, i) => {
+    const color = colors[i % colors.length];
+    const pts = (rt.stops || [])
+      .filter(s => s.lat != null && s.lon != null)
+      .map(s => [s.lat, s.lon]);
+    if (pts.length > 1) {
+      L.polyline(pts, { color, weight: 3, opacity: 0.55 }).addTo(group)
+        .bindPopup(`<b>${rt.route_no}</b><br>${rt.origin_name} → ${rt.dest_name}`);
+    }
+    if (pts.length) {
+      L.marker(pts[0], { icon: stopIcon(color), title: rt.origin_name }).addTo(group);
+      L.marker(pts[pts.length - 1], { icon: depotIcon(color), title: rt.dest_name }).addTo(group);
+      all.push(...pts);
+    }
+  });
+
+  group.addTo(map);
+  _depotRoutesLayer = group;
+  if (all.length) map.fitBounds(L.latLngBounds(all), { padding: [30, 30] });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Legend control
+// Render a SINGLE selected transport route (used by the 500-route selector)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildLegend(routes) {
-  const legend = L.control({ position: 'bottomright' });
-  legend.onAdd = function () {
-    const div = L.DomUtil.create('div');
-    div.style.cssText = `
-      background:rgba(255,255,255,0.95);
-      padding:10px 14px;
-      border-radius:8px;
-      box-shadow:0 2px 8px rgba(0,0,0,0.15);
-      font-family:Poppins,sans-serif;
-      font-size:12px;
-      line-height:1.8;
-    `;
-    let html = '<b style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#555">Routes</b><br>';
-    routes.forEach(r => {
-      html += `<span style="color:${r.color}">&#9644;</span> ${r.name}<br>`;
-    });
-    html += '<hr style="border:none;border-top:1px solid #eee;margin:6px 0">';
-    html += '<span style="font-size:10px;color:#888">&#x25CF; Click a stop to select</span>';
-    div.innerHTML = html;
-    return div;
+let _singleRouteLayer = null;
+
+/**
+ * Draw one route's ordered stop_sequence (from /api/transport/routes/<id>).
+ * Clears any previously drawn single route first. Pans to fit the route.
+ *
+ * @param {L.Map} map
+ * @param {Object} route - { stops: [{stop_id,name,lat,lon,is_major}], route_no, ... }
+ * @param {string} color
+ */
+function renderSingleRoute(map, route, color = '#1F6FB2') {
+  if (_singleRouteLayer) {
+    map.removeLayer(_singleRouteLayer);
+    _singleRouteLayer = null;
+  }
+  if (!route || !route.stops || !route.stops.length) return;
+
+  const group   = L.layerGroup();
+  const latLons = route.stops
+    .filter(s => s.lat != null && s.lon != null)
+    .map(s => [s.lat, s.lon]);
+
+  // Stop markers (drawn immediately; markers sit above the road line anyway).
+  route.stops.forEach((s, i) => {
+    if (s.lat == null || s.lon == null) return;
+    const isEnd = (i === 0 || i === route.stops.length - 1);
+    L.marker([s.lat, s.lon], {
+      icon: isEnd ? depotIcon(color) : stopIcon(color),
+      title: s.name
+    }).addTo(group).bindPopup(
+      `<b style="color:${color}">${s.name}</b>` +
+      (isEnd ? `<br><span style="font-size:11px;color:#555">${i === 0 ? 'Origin' : 'Destination'}</span>` : '')
+    );
+  });
+
+  group.addTo(map);
+  _singleRouteLayer = group;
+  if (latLons.length) map.fitBounds(L.latLngBounds(latLons), { padding: [40, 40] });
+
+  // Road-following path (async): fetch cached OSRM geometry from the backend,
+  // fall back to straight segments between stops if it is unavailable.
+  const drawPath = (coords, dashed) => {
+    if (group !== _singleRouteLayer) return;   // a newer route was selected
+    L.polyline(coords, {
+      color, weight: 5, opacity: 0.85,
+      dashArray: dashed ? '6 8' : null
+    }).addTo(group);
   };
-  return legend;
+  if (route.route_id) {
+    fetch(`/api/transport/routes/${route.route_id}/geometry`)
+      .then(r => r.json())
+      .then(g => {
+        if (g.coords && g.coords.length) drawPath(g.coords, g.source !== 'osrm');
+        else drawPath(latLons, true);
+      })
+      .catch(() => drawPath(latLons, true));
+  } else {
+    drawPath(latLons, true);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
