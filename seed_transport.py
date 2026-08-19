@@ -9,10 +9,12 @@ data to the target sizes:
     trips  (from real departure timings)   drivers / conductors (> 500)
     bus_schedules (one per trip)
 
-Follows the same connection pattern as seed_db.py. Reseed is idempotent
-(delete_many then insert_many per collection). The existing depot LOGIN
-accounts are preserved (phone/name/password kept) so the current auth flow
-keeps working — this collection is EXPANDED, not replaced destructively.
+Follows the same connection pattern as seed_db.py. Reseeding is idempotent AND
+non-destructive: every document is upserted on its natural key and reuses the
+surrogate id it already had, so existing lost/found reports that reference a
+route_id / trip_id / bus_id keep resolving. The existing depot LOGIN accounts
+are preserved (phone/name/password kept) so the current auth flow keeps working
+— that collection is EXPANDED, not replaced.
 
 Run:  python seed_transport.py
 """
@@ -24,7 +26,7 @@ import random
 import hashlib
 from datetime import datetime, timedelta
 
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateOne
 from dotenv import load_dotenv
 
 import transport_schema as T
@@ -213,7 +215,9 @@ def route_type_from_suffix(route_no: str) -> str:
 
 def reg_no(depot_code: str, idx: int) -> str:
     """TN-style registration, e.g. TN-72-N-1234."""
-    rto = 30 + (abs(hash(depot_code)) % 60)          # 30..89
+    # md5, NOT hash(): Python randomises string hashing per process, which would
+    # change every bus's registration on each run and defeat the stable-id reseed.
+    rto = 30 + (int(hashlib.md5(depot_code.encode()).hexdigest(), 16) % 60)   # 30..89
     letter = "ABCDEFGHJKLMNPRSTUVWXYZ"[idx % 22]
     return f"TN-{rto:02d}-{letter}-{1000 + (idx % 9000)}"
 
@@ -244,6 +248,32 @@ def uid() -> str:
     return hashlib.md5(f"{random.random()}{random.random()}".encode()).hexdigest()
 
 
+def load_id_map(db, coll: str, id_field: str, key_fields: list) -> dict:
+    """
+    Map an existing collection's NATURAL key -> its stored surrogate id.
+    Used so a reseed reuses ids instead of minting new ones (see `stable`).
+    """
+    proj = {id_field: 1}
+    for k in key_fields:
+        proj[k] = 1
+    out = {}
+    for d in db[coll].find({}, proj):
+        if d.get(id_field) is not None:
+            out[tuple(d.get(k) for k in key_fields)] = d[id_field]
+    return out
+
+
+def stable(id_map: dict, *key) -> str:
+    """
+    Return the id already stored for this natural key, else a fresh one.
+
+    This is what makes a reseed non-destructive: live lost/found reports hold
+    route_id / trip_id / bus_id references, so regenerating those ids would
+    orphan them. Reusing the existing id keeps every reference valid.
+    """
+    return id_map.get(tuple(key)) or uid()
+
+
 # ══════════════════════════════════════════════════════════════════════════
 def main():
     uri = os.environ.get("MONGO_URI")
@@ -255,6 +285,16 @@ def main():
 
     print("Applying schema validators...")
     T.apply_validators(db)
+
+    # Existing natural-key -> id maps, so this run reuses ids (idempotent reseed).
+    id_depot = load_id_map(db, T.DEPOTS, "depot_id", ["depot_code"])
+    id_stop  = load_id_map(db, T.STOPS,  "stop_id",  ["name"])
+    id_bus   = load_id_map(db, T.BUSES,  "bus_id",   ["registration_no"])
+    id_route = load_id_map(db, T.ROUTES, "route_id", ["route_no", "origin_name", "dest_name"])
+    id_trip  = load_id_map(db, T.TRIPS,  "trip_id",  ["route_id", "departure_time"])
+    id_drv   = load_id_map(db, T.DRIVERS, "driver_id", ["employee_no"])
+    id_con   = load_id_map(db, T.CONDUCTORS, "conductor_id", ["employee_no"])
+    id_sched = load_id_map(db, T.BUS_SCHEDULES, "schedule_id", ["trip_id"])
 
     rows = list(csv.DictReader(open(CSV_PATH, encoding="utf-8-sig")))
     print(f"Loaded {len(rows)} SETC service rows from CSV")
@@ -310,7 +350,7 @@ def main():
         password = prior.get("password", "pass123") if prior else "pass123"
         name = prior.get("name") if prior else f"{home.title()} Depot"
         doc = {
-            "depot_id": uid(), "depot_code": code, "name": name,
+            "depot_id": stable(id_depot, code), "depot_code": code, "name": name,
             "phone": phone, "password": password,
             "city": home.title(), "district": CITY_DISTRICT.get(home, home.title()),
             "lat": lat, "lon": lon, "stop": home.title(),
@@ -328,7 +368,7 @@ def main():
         lat, lon = coord_for(town)
         code = f"SY{len(depots):03d}"
         doc = {
-            "depot_id": uid(), "depot_code": code, "name": f"{town} Depot",
+            "depot_id": stable(id_depot, code), "depot_code": code, "name": f"{town} Depot",
             "phone": next_phone(), "password": "pass123",
             "city": town, "district": town, "lat": lat, "lon": lon, "stop": town,
             "routes": [], "is_staffed": False, "source": "synthetic",
@@ -349,7 +389,7 @@ def main():
     for city in major_cities:
         lat, lon = coord_for(city)
         doc = {
-            "stop_id": uid(), "name": city.title(), "city": city.title(),
+            "stop_id": stable(id_stop, city.title()), "name": city.title(), "city": city.title(),
             "district": CITY_DISTRICT.get(city, city.title()),
             "lat": lat, "lon": lon, "depot_id": None, "is_major": True,
             "source": "setc_csv" if city in {canon(r[k]) for r in rows for k in ("From", "To")} else "synthetic",
@@ -382,9 +422,10 @@ def main():
         suf = LOCALITY_SUFFIX[(minor_idx // len(LOCALITY_ROOTS)) % len(LOCALITY_SUFFIX)]
         minor_idx += 1
         lat, lon = jitter(a["lat"], a["lon"])
+        minor_name = f"{root} {suf} ({anchor.title()})"
         stops.append({
-            "stop_id": uid(),
-            "name": f"{root} {suf} ({anchor.title()})",
+            "stop_id": stable(id_stop, minor_name),
+            "name": minor_name,
             "city": anchor.title(), "district": a["district"],
             "lat": lat, "lon": lon, "depot_id": a["depot_id"],
             "is_major": False, "source": "synthetic", "external_ref": None,
@@ -472,7 +513,7 @@ def main():
             svc = 1
         code = r["Depot"].strip()
         doc = {
-            "route_id": uid(), "route_no": rn,
+            "route_id": stable(id_route, rn, o_city.title(), d_city.title()), "route_no": rn,
             "origin_stop_id": stop_by_city[o_city]["stop_id"],
             "dest_stop_id": stop_by_city[d_city]["stop_id"],
             "origin_name": o_city.title(), "dest_name": d_city.title(),
@@ -503,7 +544,7 @@ def main():
         rn = f"{700 + len(routes)}SY"
         code = random.choice(real_codes)
         doc = {
-            "route_id": uid(), "route_no": rn,
+            "route_id": stable(id_route, rn, o_city.title(), d_city.title()), "route_no": rn,
             "origin_stop_id": o["stop_id"], "dest_stop_id": d["stop_id"],
             "origin_name": o_city.title(), "dest_name": d_city.title(), "via": "",
             "distance_km": dist, "type": "ULTRA",
@@ -538,8 +579,9 @@ def main():
     buses_by_depot = defaultdict(list)
     for d in operating_depots:
         for i in range(bus_alloc[d["depot_id"]]):
+            reg = reg_no(d["depot_code"], len(buses))
             doc = {
-                "bus_id": uid(), "registration_no": reg_no(d["depot_code"], len(buses)),
+                "bus_id": stable(id_bus, reg), "registration_no": reg,
                 "depot_id": d["depot_id"], "depot_code": d["depot_code"],
                 "type": "ULTRA", "capacity": 0, "seat_layout": {},
                 "model": random.choice(["Ashok Leyland Viking", "TATA LPO 1618",
@@ -559,11 +601,15 @@ def main():
         dep_id = rt["operating_depot_id"]
         fleet = buses_by_depot.get(dep_id) or buses
         duration = int(rt["distance_km"] / 45 * 60)   # ~45 km/h
+        seen_times = set()
         for tstr in times:
+            if tstr in seen_times:
+                continue          # same route cannot depart twice at one time
+            seen_times.add(tstr)
             bus = fleet[rr[dep_id] % len(fleet)]
             rr[dep_id] += 1
             trip = {
-                "trip_id": uid(), "route_id": rt["route_id"], "bus_id": bus["bus_id"],
+                "trip_id": stable(id_trip, rt["route_id"], tstr), "route_id": rt["route_id"], "bus_id": bus["bus_id"],
                 "route_no": rt["route_no"], "departure_time": tstr,
                 "arrival_time": est_arrival(tstr, duration), "duration_min": duration,
                 "days_of_week": "DAILY", "source": rt["source"], "external_ref": None,
@@ -623,10 +669,10 @@ def main():
     for d in operating_depots:
         n = max(1, int(len(buses_by_depot[d["depot_id"]]) * 1.3))
         for _ in range(n):
-            drv = make_person(d, "driver", di); drv["driver_id"] = uid()
+            drv = make_person(d, "driver", di); drv["driver_id"] = stable(id_drv, drv["employee_no"])
             drv["license_no"] = f"TN{random.randint(10, 99)}{random.randint(10**9, 10**10 - 1)}"
             drivers.append(drv); di += 1
-            con = make_person(d, "conductor", ci); con["conductor_id"] = uid()
+            con = make_person(d, "conductor", ci); con["conductor_id"] = stable(id_con, con["employee_no"])
             conductors.append(con); ci += 1
 
     drivers_by_depot = defaultdict(list)
@@ -644,7 +690,7 @@ def main():
         drv = random.choice(drivers_by_depot[dep_id]) if drivers_by_depot[dep_id] else None
         con = random.choice(conductors_by_depot[dep_id]) if conductors_by_depot[dep_id] else None
         schedules.append({
-            "schedule_id": uid(), "trip_id": tp["trip_id"], "bus_id": tp["bus_id"],
+            "schedule_id": stable(id_sched, tp["trip_id"]), "trip_id": tp["trip_id"], "bus_id": tp["bus_id"],
             "driver_id": drv["driver_id"] if drv else None,
             "conductor_id": con["conductor_id"] if con else None,
             "effective_from": "2026-07-01", "status": "active",
@@ -652,22 +698,65 @@ def main():
         })
 
     # ── Persist (idempotent reseed) ──────────────────────────────────────────
-    def reset_insert(coll, docs, label):
-        db[coll].delete_many({})
-        if docs:
-            # strip helper keys just in case
-            db[coll].insert_many(docs)
-        print(f"  {label:14} {len(docs)}")
+    # Upsert on the NATURAL key and reuse existing surrogate ids (see `stable`),
+    # so re-running this seeder never orphans live lost/found reports that
+    # reference route_id / trip_id / bus_id. $set (rather than a full replace)
+    # also preserves runtime-added fields such as a route's cached road_geometry.
+    def upsert_all(coll, docs, key_fields, label):
+        # Guard against two generated docs sharing one natural key.
+        uniq, seen = [], set()
+        for d in docs:
+            k = tuple(d.get(f) for f in key_fields)
+            if k in seen:
+                continue
+            seen.add(k)
+            uniq.append(d)
+
+        # Collapse any pre-existing duplicates FIRST, so each natural key maps to
+        # exactly one document (an upsert alone cannot remove a duplicate that
+        # shares its key with the doc being updated).
+        dup_ids, first_seen = [], set()
+        for x in db[coll].find({}, {f: 1 for f in key_fields}):
+            k = tuple(x.get(f) for f in key_fields)
+            if k in first_seen:
+                dup_ids.append(x["_id"])
+            else:
+                first_seen.add(k)
+        if dup_ids:
+            db[coll].delete_many({"_id": {"$in": dup_ids}})
+
+        if uniq:
+            db[coll].bulk_write(
+                [UpdateOne({f: d.get(f) for f in key_fields}, {"$set": d}, upsert=True)
+                 for d in uniq],
+                ordered=False
+            )
+
+        # Converge the collection to what this run generated.
+        stale = [x["_id"] for x in db[coll].find({}, {f: 1 for f in key_fields})
+                 if tuple(x.get(f) for f in key_fields) not in seen]
+        if stale:
+            db[coll].delete_many({"_id": {"$in": stale}})
+
+        dropped = len(docs) - len(uniq)
+        extra = []
+        if dropped:
+            extra.append(f"dup keys skipped: {dropped}")
+        if dup_ids:
+            extra.append(f"existing dupes collapsed: {len(dup_ids)}")
+        if stale:
+            extra.append(f"stale removed: {len(stale)}")
+        print(f"  {label:14} {len(uniq)}" + (f"   ({', '.join(extra)})" if extra else ""))
 
     print("Seeding collections:")
-    reset_insert(T.DEPOTS, depots, "depots")
-    reset_insert(T.STOPS, stops, "stops")
-    reset_insert(T.ROUTES, routes, "routes")
-    reset_insert(T.BUSES, buses, "buses")
-    reset_insert(T.TRIPS, trips, "trips")
-    reset_insert(T.DRIVERS, drivers, "drivers")
-    reset_insert(T.CONDUCTORS, conductors, "conductors")
-    reset_insert(T.BUS_SCHEDULES, schedules, "bus_schedules")
+    upsert_all(T.DEPOTS, depots, ["depot_code"], "depots")
+    upsert_all(T.STOPS, stops, ["name"], "stops")
+    upsert_all(T.ROUTES, routes, ["route_no", "origin_name", "dest_name"], "routes")
+    upsert_all(T.BUSES, buses, ["registration_no"], "buses")
+    upsert_all(T.TRIPS, trips, ["route_id", "departure_time"], "trips")
+    upsert_all(T.DRIVERS, drivers, ["employee_no"], "drivers")
+    upsert_all(T.CONDUCTORS, conductors, ["employee_no"], "conductors")
+    upsert_all(T.BUS_SCHEDULES, schedules, ["trip_id"], "bus_schedules")
 
     # helpful indexes for the API lookups
     db[T.ROUTES].create_index("route_id")

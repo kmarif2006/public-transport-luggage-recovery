@@ -371,7 +371,7 @@ def _save_match(found_report: dict, lost: dict, score: dict) -> bool:
         msg = (f"TNSTC Alert: A highly likely match for your lost item was found at "
                f"{found_report['depot_name']}. Please check the portal with your "
                f"Tracking ID: {lost['tracking_id']}.")
-        notification_service.send_whatsapp(lost["phone"], msg)
+        notification_service.send_whatsapp_async(lost["phone"], msg)
     return is_new
 
 
@@ -1043,7 +1043,7 @@ def resolve_match():
     lost_report = lost_collection.find_one({"request_id": request_id})
     if lost_report and lost_report.get("phone"):
         msg = f"TNSTC Alert: Good news! Your lost item ({lost_report.get('tracking_id')}) has been verified and found at {depot_name}. Please visit the depot to collect it."
-        notification_service.send_whatsapp(lost_report["phone"], msg)
+        notification_service.send_whatsapp_async(lost_report["phone"], msg)
 
     return jsonify({
         "success": True,
