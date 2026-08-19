@@ -49,22 +49,38 @@
 
                 <form action="{{ url_for('submit_found') }}" method="POST" enctype="multipart/form-data"
                       class="p-6 space-y-6">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <!-- Route (searchable over the SETC transport catalog) -->
+                    <div class="space-y-1.5 relative">
+                        <label class="block text-sm font-bold text-slate-700">Route / வழித்தடம் <span class="text-tn-red">*</span></label>
+                        <input type="text" id="f_route_search" autocomplete="off"
+                               class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus"
+                               placeholder="Search route no. or city (e.g. Madurai, 831UD)">
+                        <input type="hidden" name="route_id" id="f_route_id" required>
+                        <div id="f_route_results"
+                             class="hidden absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-64 overflow-y-auto"></div>
+                    </div>
+
                     <div class="grid md:grid-cols-2 gap-6">
                         <div class="space-y-1.5">
-                            <label class="block text-sm font-bold text-slate-700">Route / வழித்தடம்</label>
-                            <select name="route_id" required
-                                    class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus">
-                                <option value="">Select route</option>
-                                {% for route in routes %}
-                                <option value="{{ route.id }}">{{ route.name }}</option>
-                                {% endfor %}
+                            <label class="block text-sm font-bold text-slate-700">Bus / Service <span class="text-slate-400 font-normal">(optional)</span></label>
+                            <select name="trip_id" id="f_trip_select" disabled
+                                    class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium bg-white input-focus disabled:bg-slate-100 disabled:text-slate-400">
+                                <option value="">Select a route first</option>
                             </select>
                         </div>
                         <div class="space-y-1.5">
-                            <label class="block text-sm font-bold text-slate-700">Date Found / தேதி</label>
+                            <label class="block text-sm font-bold text-slate-700">Date Found / தேதி <span class="text-tn-red">*</span></label>
                             <input type="date" name="date" id="found_date" required
                                    class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium input-focus">
                         </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="block text-sm font-bold text-slate-700">Found Near Seat No. <span class="text-slate-400 font-normal">(optional)</span></label>
+                        <input type="number" name="found_seat_area" min="1" max="60"
+                               class="w-full h-[40px] px-3 border border-slate-300 rounded-md font-medium mono input-focus"
+                               placeholder="e.g. 23 — helps pinpoint the passenger">
                     </div>
 
                     <div class="space-y-1.5">
@@ -239,6 +255,12 @@
                                         OCR: {{ "%.2f"|format(lost.score.ocr) }}
                                     </span>
                                     {% endif %}
+                                    {% if lost.score.structured and lost.score.structured > 0 %}
+                                    <span class="score-badge bg-indigo-50 border-indigo-200">
+                                        <span class="score-dot bg-indigo-500"></span>
+                                        <span class="text-indigo-800">Trip/Bus: {{ "%.2f"|format(lost.score.structured) }}</span>
+                                    </span>
+                                    {% endif %}
                                     <span class="score-badge">
                                         <span class="score-dot bg-green-500"></span>
                                         Route: {{ "%.1f"|format(lost.score.route) }}
@@ -311,16 +333,71 @@ fileInput.addEventListener('change', function () {
 // ── Cap date input at today ────────────────────────────────────────────────
 document.getElementById('found_date').max = new Date().toISOString().split('T')[0];
 
+// ── Route search for the found-item form (transport catalog) ────────────────
+const fRouteSearch  = document.getElementById('f_route_search');
+const fRouteResults = document.getElementById('f_route_results');
+const fRouteId      = document.getElementById('f_route_id');
+const fTripSelect   = document.getElementById('f_trip_select');
+
+let _fTimer = null;
+fRouteSearch.addEventListener('input', function () {
+    const q = this.value.trim();
+    clearTimeout(_fTimer);
+    _fTimer = setTimeout(() => {
+        fetch(`/api/transport/routes?q=${encodeURIComponent(q)}&limit=25`)
+            .then(r => r.json())
+            .then(routes => {
+                fRouteResults.innerHTML = '';
+                routes.forEach(rt => {
+                    const via = rt.via ? ` (${rt.via})` : '';
+                    const item = document.createElement('div');
+                    item.className = 'px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b border-slate-50';
+                    item.innerHTML =
+                        `<span class="font-bold text-tn-blue mono">${rt.route_no}</span> · ` +
+                        `${rt.origin_name} → ${rt.dest_name}${via}`;
+                    item.addEventListener('click', () => selectFoundRoute(rt));
+                    fRouteResults.appendChild(item);
+                });
+                fRouteResults.classList.remove('hidden');
+            });
+    }, 220);
+});
+document.addEventListener('click', (e) => {
+    if (!fRouteResults.contains(e.target) && e.target !== fRouteSearch) {
+        fRouteResults.classList.add('hidden');
+    }
+});
+
+function selectFoundRoute(rt) {
+    fRouteId.value = rt.route_id;
+    fRouteSearch.value = `${rt.route_no} · ${rt.origin_name} → ${rt.dest_name}`;
+    fRouteResults.classList.add('hidden');
+    fTripSelect.disabled = true;
+    fTripSelect.innerHTML = '<option value="">Loading services…</option>';
+    fetch(`/api/transport/routes/${rt.route_id}/trips`)
+        .then(r => r.json())
+        .then(trips => {
+            fTripSelect.innerHTML = '<option value="">Any / not sure</option>';
+            trips.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.trip_id;
+                opt.textContent = `${t.departure_time} · ${t.registration_no || 'Bus'} (${t.type || ''})`;
+                fTripSelect.appendChild(opt);
+            });
+            fTripSelect.disabled = false;
+        });
+}
+
 // ── Resolve match via API ─────────────────────────────────────────────────
 function resolveMatch(matchId, requestId, trackingId, btn) {
     // Send both IDs exactly as the backend expects
     fetch('/api/match/resolve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            match_id: matchId,
-            request_id: requestId
-        })
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify({ match_id: matchId })
     })
     .then(r => r.json())
     .then(data => {
@@ -355,8 +432,11 @@ function resolveMatch(matchId, requestId, trackingId, btn) {
     });
 }
 
-// ── Depot map ─────────────────────────────────────────────────────────────
+// ── Depot map: show the routes THIS depot operates ─────────────────────────
 const depotMap = initMap('depot-map');
-renderRoutes(depotMap, null);   // No stop-selection needed on depot view
+fetch(`/api/transport/depots/{{ depot_phone }}/routes`)
+    .then(r => r.json())
+    .then(routes => renderDepotRoutes(depotMap, routes))
+    .catch(err => console.error('Failed to load depot routes:', err));
 </script>
 {% endblock %}

@@ -1,5 +1,6 @@
 import os
 import logging
+import threading
 from twilio.rest import Client
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,26 @@ class NotificationService:
         except Exception as e:
             logger.error(f"Failed to send WhatsApp to {to_phone_number}. Error: {e}")
             return False
+
+    def send_whatsapp_async(self, to_phone_number: str, message: str) -> None:
+        """
+        Fire-and-forget variant used by the request handlers.
+
+        Twilio is an external HTTP call; doing it inline made a passenger's
+        submit / a depot's resolve wait on Twilio's latency (and stall if the
+        API hung). Delivery is best-effort and nothing in the flow depends on
+        the result, so dispatch it on a daemon thread and return immediately.
+        Failures are logged by send_whatsapp itself.
+        """
+        if not self.enabled:
+            logger.warning(f"Could not send WhatsApp to {to_phone_number}. Twilio is not configured.")
+            return
+        threading.Thread(
+            target=self.send_whatsapp,
+            args=(to_phone_number, message),
+            daemon=True,
+        ).start()
+
 
 # Create a singleton instance to be used across the app
 notification_service = NotificationService()

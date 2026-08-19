@@ -20,6 +20,7 @@
             </div>
 
             <form action="{{ url_for('depot_login') }}" method="POST" class="p-8 space-y-6">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <!-- Depot Selection -->
                 <div class="space-y-1.5">
                     <label class="block text-sm font-bold text-slate-700">
